@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>转介绍活动物料 Agent</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <div>
+          <p class="eyebrow">Walnut Ops · Referral Material</p>
+          <h1>转介绍活动物料 Agent</h1>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="apiHealth" class="status">检查 API…</span>
+        <button id="resetBtn" class="ghost-btn" type="button">重置</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- =================== 左：输入 =================== -->
+      <aside class="col col-left">
+        <!-- Step 1 -->
+        <section class="card">
+          <div class="card-head"><span class="step-tag">1</span><h2>选活动模板</h2></div>
+          <div class="locked-row">
+            <span class="locked-pill">转介绍 - 硬件外化</span>
+            <span class="locked-note">（v0 固定）</span>
+          </div>
+          <div id="activityInfo" class="info-block tight"></div>
+        </section>
+
+        <!-- Step 2 -->
+        <section class="card">
+          <div class="card-head"><span class="step-tag">2</span><h2>选要生成的页面</h2></div>
+          <p class="hint">每个页面 × 每个视觉风格各出一张图。</p>
+          <div id="pageChecks" class="check-grid"></div>
+        </section>
+
+        <!-- Step 3 -->
+        <section class="card">
+          <div class="card-head">
+            <span class="step-tag">3</span><h2>活动文案 / 数字（会画进图）</h2>
+          </div>
+          <p class="hint">每期活动都会变的关键文案。AI 会按这里的值在画布上写字。空着走默认。</p>
+          <div id="opsFields" class="ops-grid"></div>
+        </section>
+
+        <!-- Step 4 -->
+        <section class="card">
+          <div class="card-head">
+            <span class="step-tag">4</span><h2>活动调性 / 受众 / 禁忌</h2>
+            <button id="loadDefaultPrd" class="ghost-btn" type="button">载入示例</button>
+          </div>
+          <p class="hint">
+            <strong>不会画进图</strong>，但调 AI 的氛围 / 重点 / 禁忌 —— 比如人群是老用户还是新用户、第一眼想让人看到什么、有没有不能出现的元素。
+            有 PRD 直接粘文本，没有就回答下面 6 个问题。空着也 OK。
+          </p>
+          <label class="field">
+            <span>粘贴 PRD 文本（可选）</span>
+            <textarea id="prdRaw" rows="4" placeholder="直接 paste PRD 关键段落…"></textarea>
+          </label>
+          <details class="advanced">
+            <summary>用 6 个关键问题来填</summary>
+            <div id="prdQuestions" class="qa-grid"></div>
+          </details>
+        </section>
+
+        <!-- Step 5 -->
+        <section class="card">
+          <div class="card-head"><span class="step-tag">5</span><h2>参考图（可选）</h2></div>
+          <p class="hint">
+            上传后会作为 img2img 输入（第 1 张为主参考；多余的图只在 prompt 里描述）。
+            <br>有参考图时会自动在 prompt 开头拼一段固定模板：
+            <em>"参考这个 H5 的主视觉头图，分析这张图，根据这张图的设计风格，重新策划一张关于「活动名」营销活动的 H5 页，不要跟参考图太像，要有差别"</em>。
+          </p>
+          <input id="refImages" type="file" accept="image/*" multiple />
+          <div id="refList" class="ref-list"></div>
+        </section>
+
+        <!-- Step 6 -->
+        <section class="card">
+          <div class="card-head"><span class="step-tag">6</span><h2>运营特殊指令（可选）</h2></div>
+          <p class="hint">本次活动单独想强调的点，自由描述。</p>
+          <textarea id="specialInst" rows="3" placeholder="例：这次主推春季拉新，奖品堆里加一个春日元素；标题字别太花。"></textarea>
+        </section>
+
+        <!-- Step 7 -->
+        <section class="card">
+          <div class="card-head">
+            <span class="step-tag">7</span><h2>设计规范覆盖（可选）</h2>
+            <span class="locked-note" id="specSource">用默认</span>
+          </div>
+          <p class="hint">优先级：本次覆盖 &gt; 后台规范 &gt; 默认。留空就走核桃默认（橙 + 黄 + 漫画黑体）。</p>
+          <textarea id="designSpecText" rows="3" placeholder="例：本次主色换成蓝绿对比；不要黄色 CTA；用衬线字。"></textarea>
+        </section>
+
+        <!-- Step 8 -->
+        <section class="card">
+          <div class="card-head">
+            <span class="step-tag">8</span><h2>字体风格</h2>
+          </div>
+          <p class="hint">v0：单一字体作用全图（标题 / CTA / 步骤文字一起变）。多角色独立控制留 v1。</p>
+          <div id="fontChips" class="style-chips"></div>
+          <label class="field" id="fontCustomField" style="display:none; margin-top:8px;">
+            <span>字体描述</span>
+            <textarea id="fontCustom" rows="2" placeholder="例：粗黑体白描边漫画字 / 像变形金刚那种锋利金属感 / 童趣手写带笑脸装饰…"></textarea>
+          </label>
+        </section>
+
+        <!-- Step 9 -->
+        <section class="card">
+          <div class="card-head"><span class="step-tag">9</span><h2>选视觉风格（可多选）</h2></div>
+          <p class="hint">视觉风格 = 整体构图 / 配色 / 装饰语汇。一个风格选了，会同时套到所有页面保证一致；选 N 个 = 跑 N 套。</p>
+          <div id="styleChips" class="style-chips"></div>
+        </section>
+
+        <button id="generateBtn" class="primary-btn block-btn" type="button">▶ 生成 N 张图</button>
+      </aside>
+
+      <!-- =================== 中：结果 =================== -->
+      <section class="col col-center">
+        <section class="card">
+          <div class="card-head">
+            <h2>生成结果</h2>
+            <span id="genStatus" class="status"></span>
+          </div>
+          <div id="resultsGrid" class="results-grid">
+            <div class="empty-hint">左侧选好后点「生成」。每张图卡上可以勾选优化方向重新生成。</div>
+          </div>
+        </section>
+      </section>
+
+      <!-- =================== 右：导出 =================== -->
+      <aside class="col col-right">
+        <section class="card">
+          <div class="card-head"><h2>选要导出哪一张</h2></div>
+          <select id="exportTargetSelect" class="export-select">
+            <option value="">尚未生成</option>
+          </select>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>导出可交付物</h2></div>
+          <div class="deliverable-list">
+            <button id="exportPngBtn" class="deliverable-btn" type="button" data-kind="png">
+              <span class="d-name">PNG（原图）</span>
+              <span class="d-desc">给 Lovart / Midjourney / 微信发图等扁平图工具用</span>
+            </button>
+            <button id="exportPsdBtn" class="deliverable-btn" type="button" data-kind="psd">
+              <span class="d-name">PSD（多图层）</span>
+              <span class="d-desc">底图 + 11 个命名占位图层，PS 打开直接编辑</span>
+            </button>
+            <button id="exportHtmlBtn" class="deliverable-btn" type="button" data-kind="html">
+              <span class="d-name">HTML（单文件）</span>
+              <span class="d-desc">contenteditable 可改字，可作为 html.to.design 输入</span>
+            </button>
+            <button id="exportFigmaBtn" class="deliverable-btn" type="button" data-kind="figma">
+              <span class="d-name">可编辑 Figma</span>
+              <span class="d-desc">先导 HTML，再用 html.to.design 插件导入 Figma</span>
+            </button>
+            <button id="exportCodeBtn" class="deliverable-btn" type="button" data-kind="code">
+              <span class="d-name">前端代码</span>
+              <span class="d-desc">React 组件 + CSS，文案 / 图 url 都是 prop</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>Figma 图层骨架</h2></div>
+          <ol class="layer-list">
+            <li>01 Background</li>
+            <li>02 Brand Logo</li>
+            <li>03 Title Text</li>
+            <li>04 Title Stroke / Decoration</li>
+            <li>05 Hero Visual</li>
+            <li>06 Prize Assets</li>
+            <li>07 Step Panel</li>
+            <li>08 Step Text</li>
+            <li>09 CTA</li>
+            <li>10 QR Placeholder</li>
+            <li>11 Decorations</li>
+          </ol>
+        </section>
+
+        <details class="card brief-details">
+          <summary>完整 brief（给 PM 沉淀用）</summary>
+          <div class="export-actions" style="margin-top:10px;">
+            <button id="exportJsonBtn" class="ghost-btn" type="button">JSON</button>
+            <button id="exportMdBtn" class="ghost-btn" type="button">Markdown</button>
+            <button id="copyBriefBtn" class="ghost-btn" type="button">复制 Markdown</button>
+          </div>
+          <pre id="briefPreview" class="brief-preview" style="margin-top:10px;">尚未生成。</pre>
+        </details>
+      </aside>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "referral-material-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ag-psd": "^30.1.1",
+    "pngjs": "^7.0.0"
+  }
+}
