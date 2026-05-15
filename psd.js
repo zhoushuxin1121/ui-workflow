@@ -24,10 +24,7 @@ const LAYER_NAMES = [
  * 从 URL 抓取 PNG，解码成 ag-psd 需要的 RGBA ImageData
  */
 async function fetchAndDecodePng(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`fetch image ${r.status}`);
-  const ab = await r.arrayBuffer();
-  const buf = Buffer.from(ab);
+  const buf = await readImageBuffer(url);
   return new Promise((resolve, reject) => {
     new PNG().parse(buf, (err, png) => {
       if (err) return reject(err);
@@ -38,6 +35,18 @@ async function fetchAndDecodePng(url) {
       });
     });
   });
+}
+
+async function readImageBuffer(src) {
+  if (typeof src === 'string' && src.startsWith('data:image/')) {
+    const m = src.match(/^data:image\/[a-z0-9.+-]+;base64,(.+)$/i);
+    if (!m) throw new Error('unsupported data image format');
+    return Buffer.from(m[1], 'base64');
+  }
+  const r = await fetch(src);
+  if (!r.ok) throw new Error(`fetch image ${r.status}`);
+  const ab = await r.arrayBuffer();
+  return Buffer.from(ab);
 }
 
 /**

@@ -13,6 +13,7 @@
         <div>
           <p class="eyebrow">Walnut Ops · Referral Material</p>
           <h1>转介绍活动物料 Agent</h1>
+          <p class="brand-subtitle">运营输入 brief → AI 出图 → PSD 精修 / Figma 还原包</p>
         </div>
       </div>
       <div class="topbar-right">
@@ -53,16 +54,16 @@
         <!-- Step 4 -->
         <section class="card">
           <div class="card-head">
-            <span class="step-tag">4</span><h2>活动调性 / 受众 / 禁忌</h2>
+            <span class="step-tag">4</span><h2>PRD / 交互 / 投放上下文</h2>
             <button id="loadDefaultPrd" class="ghost-btn" type="button">载入示例</button>
           </div>
           <p class="hint">
-            <strong>不会画进图</strong>，但调 AI 的氛围 / 重点 / 禁忌 —— 比如人群是老用户还是新用户、第一眼想让人看到什么、有没有不能出现的元素。
-            有 PRD 直接粘文本，没有就回答下面 6 个问题。空着也 OK。
+            <strong>不会直接画进图</strong>，但会影响 AI 出图和后续 HTML-to-Figma 还原 —— 比如页面用途、投放渠道、用户动作、二维码规则、禁忌元素。
+            有 PRD / 交互说明直接粘文本，没有就回答下面 6 个问题。空着也 OK。
           </p>
           <label class="field">
-            <span>粘贴 PRD 文本（可选）</span>
-            <textarea id="prdRaw" rows="4" placeholder="直接 paste PRD 关键段落…"></textarea>
+            <span>粘贴 PRD / 交互说明（可选）</span>
+            <textarea id="prdRaw" rows="4" placeholder="直接 paste PRD、投放说明、页面交互、二维码去向、活动规则等关键段落…"></textarea>
           </label>
           <details class="advanced">
             <summary>用 6 个关键问题来填</summary>
@@ -74,9 +75,9 @@
         <section class="card">
           <div class="card-head"><span class="step-tag">5</span><h2>参考图（可选）</h2></div>
           <p class="hint">
-            上传后会作为 img2img 输入（第 1 张为主参考；多余的图只在 prompt 里描述）。
+            上传后会全部作为 gpt-image-2 的参考图输入（最多按接口取前 16 张），模型会分析这些图的配色 / 构图 / 字体层级 / 装饰语言后重策划。
             <br>有参考图时会自动在 prompt 开头拼一段固定模板：
-            <em>"参考这个 H5 的主视觉头图，分析这张图，根据这张图的设计风格，重新策划一张关于「活动名」营销活动的 H5 页，不要跟参考图太像，要有差别"</em>。
+            <em>"参考这些视觉图，分析参考图的配色逻辑、构图节奏、字体层级、装饰语汇和营销重点，重新策划一张关于「活动名」的「页面类型」…"</em>。
           </p>
           <input id="refImages" type="file" accept="image/*" multiple />
           <div id="refList" class="ref-list"></div>
@@ -119,7 +120,10 @@
           <div id="styleChips" class="style-chips"></div>
         </section>
 
-        <button id="generateBtn" class="primary-btn block-btn" type="button">▶ 生成 N 张图</button>
+        <div class="generate-actions">
+          <button id="generateBtn" class="primary-btn block-btn" type="button">▶ 生成 N 张图</button>
+          <button id="loadDemoBtn" class="ghost-btn block-btn" type="button">载入 Demo 结果</button>
+        </div>
       </aside>
 
       <!-- =================== 中：结果 =================== -->
@@ -147,31 +151,39 @@
         <section class="card">
           <div class="card-head"><h2>导出可交付物</h2></div>
           <div class="deliverable-list">
+            <div class="deliverable-group">
+              <p class="group-title">视觉精修</p>
             <button id="exportPngBtn" class="deliverable-btn" type="button" data-kind="png">
               <span class="d-name">PNG（原图）</span>
               <span class="d-desc">给 Lovart / Midjourney / 微信发图等扁平图工具用</span>
             </button>
             <button id="exportPsdBtn" class="deliverable-btn" type="button" data-kind="psd">
-              <span class="d-name">PSD（多图层）</span>
-              <span class="d-desc">底图 + 11 个命名占位图层，PS 打开直接编辑</span>
+              <span class="d-name">PSD 工作底稿</span>
+              <span class="d-desc">AI 底图 + 命名占位层，供设计师重建标题 / CTA / QR / 奖品</span>
             </button>
+            </div>
+
+            <div class="deliverable-group">
+              <p class="group-title">结构化交付</p>
             <button id="exportHtmlBtn" class="deliverable-btn" type="button" data-kind="html">
-              <span class="d-name">HTML（单文件）</span>
-              <span class="d-desc">contenteditable 可改字，可作为 html.to.design 输入</span>
+              <span class="d-name">HTML 可编辑预览</span>
+              <span class="d-desc">单文件，contenteditable 可改字，用来快速验证文案层</span>
             </button>
             <button id="exportFigmaBtn" class="deliverable-btn" type="button" data-kind="figma">
-              <span class="d-name">可编辑 Figma</span>
-              <span class="d-desc">先导 HTML，再用 html.to.design 插件导入 Figma</span>
+              <span class="d-name">Figma 还原包</span>
+              <span class="d-desc">导出图片 + PRD + tokens + 1:1 HTML 还原指令</span>
             </button>
             <button id="exportCodeBtn" class="deliverable-btn" type="button" data-kind="code">
-              <span class="d-name">前端代码</span>
-              <span class="d-desc">React 组件 + CSS，文案 / 图 url 都是 prop</span>
+              <span class="d-name">React 包装组件</span>
+              <span class="d-desc">背景图 + 可替换标题 / CTA / QR 的轻量组件</span>
             </button>
+            </div>
           </div>
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>Figma 图层骨架</h2></div>
+          <div class="card-head"><h2>HTML-to-Figma 图层建议</h2></div>
+          <p class="hint">给代码大模型还原 HTML、以及导入 Figma 后命名图层时参考。</p>
           <ol class="layer-list">
             <li>01 Background</li>
             <li>02 Brand Logo</li>

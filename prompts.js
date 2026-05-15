@@ -69,9 +69,8 @@ function joinIfPresent(label, value) {
 
 function refImageNote(refs) {
   if (!refs?.length) return '';
-  // 第 1 张参考图通过 img2img 真传入；其余只在 prompt 里提及
-  const extra = refs.length > 1 ? ` Plus ${refs.length - 1} additional ref(s) for mood guidance only (not passed as image, just text-described).` : '';
-  return `\n[Reference image] The model is also receiving the operator's primary reference image as visual base — preserve its color logic, composition rhythm, and material feel; adapt to the campaign's content (Chinese title / CTA / prizes).${extra}`;
+  const label = refs.length === 1 ? '1 operator reference image' : `${refs.length} operator reference images`;
+  return `\n[Reference images] The model is receiving ${label} as actual visual inputs. Analyze their color logic, composition rhythm, typography hierarchy, decorative vocabulary, texture/material feel, and marketing emphasis. Synthesize the useful parts into a new Walnut Coding campaign visual; do not copy any single reference layout too literally.`;
 }
 
 // 把整个 prompt 末尾的运营上下文 + 字体约束拼起来
@@ -269,9 +268,11 @@ ${tail(ctx, posterTitles(ctx))}
 /**
  * 有参考图时的固定开场（用户指定的 prompt 模板）
  */
-function refOpeningTemplate(activityName) {
+function refOpeningTemplate(activityName, pageName, refCount = 1) {
   const name = (activityName || '').trim() || '本次活动';
-  return `参考这个H5的主视觉头图，分析这张图，根据这张图的设计风格，重新策划一张关于"${name}"营销活动的H5页，不要跟参考图太像，要有差别。\n\n`;
+  const target = pageName || '营销物料';
+  const refs = refCount > 1 ? `参考这些视觉图（共 ${refCount} 张）` : '参考这张视觉图';
+  return `${refs}，分析参考图的配色逻辑、构图节奏、字体层级、装饰语汇和营销重点，重新策划一张关于「${name}」的「${target}」。要吸收参考图的设计风格，但不要复刻版式或元素，要明显服务于核桃编程本次活动。\n\n`;
 }
 
 export function buildPrompt(pageId, styleId, ctx) {
@@ -281,7 +282,7 @@ export function buildPrompt(pageId, styleId, ctx) {
   }
   const body = fn(ctx);
   if (ctx.refs?.length) {
-    return refOpeningTemplate(ctx.ops?.basic?.activityName || ctx.ops?.activityName) + body;
+    return refOpeningTemplate(ctx.ops?.basic?.activityName || ctx.ops?.activityName, pages[pageId]?.name, ctx.refs.length) + body;
   }
   return body;
 }

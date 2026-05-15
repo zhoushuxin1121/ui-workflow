@@ -48,6 +48,7 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
   box-shadow: 0 6px 18px rgba(255, 90, 31, 0.35);
 }
 .brand h1 { margin: 0; font-size: 18px; }
+.brand-subtitle { margin: 2px 0 0; font-size: 12px; color: var(--ink-soft); }
 .eyebrow { margin: 0; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .status { font-size: 12px; color: var(--muted); }
@@ -96,12 +97,14 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
 .primary-btn:hover { background: var(--orange-deep); }
 .primary-btn:disabled { background: #d9c8b6; cursor: not-allowed; }
 .primary-btn.block-btn { width: 100%; padding: 12px; font-size: 15px; }
+.ghost-btn.block-btn { width: 100%; padding: 11px 12px; font-size: 14px; text-align: center; }
 .ghost-btn {
   background: transparent; color: var(--ink-soft);
   border: 1px solid var(--line); border-radius: 8px;
   padding: 7px 12px; cursor: pointer;
 }
 .ghost-btn:hover { border-color: var(--orange); color: var(--orange); }
+.generate-actions { display: flex; flex-direction: column; gap: 8px; }
 
 /* ============ Step 1: locked ============ */
 .locked-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -256,6 +259,15 @@ input[type="file"] {
 .export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .export-select { width: 100%; }
 .deliverable-list { display: flex; flex-direction: column; gap: 8px; }
+.deliverable-group {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; border: 1px solid var(--line-soft);
+  border-radius: 12px; background: #fffdf8;
+}
+.group-title {
+  margin: 0; font-size: 11.5px; font-weight: 700;
+  color: var(--orange-deep); letter-spacing: 0.04em;
+}
 .deliverable-btn {
   display: flex; flex-direction: column; gap: 2px;
   text-align: left; padding: 10px 12px;

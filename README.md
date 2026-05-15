@@ -6,18 +6,20 @@
 
 - 选活动（v0 固定为「转介绍-硬件外化」）
 - 选页面（小程序卡片 / 推广海报，多选）
-- 粘 PRD，或用 8 个关键问题快速填
-- 上传参考图（v0：仅记录，不参与 img2img；v1 会接 gpt-image-2）
+- 粘 PRD，或用 6 个关键问题快速填
+- 上传参考图（统一走 `gpt-image-2`；有参考图时会把全部参考图作为 `image_urls` 输入，最多取前 16 张）
 - 写运营特殊指令、覆盖设计规范
 - 选风格（5 个，多选 → 每个风格各出一张）
 - 调 apimart 异步任务流，前端轮询拿图
+- 载入 Demo 结果（不依赖 API，适合汇报演示导出链路）
 - prompt 内置严格字体约束：禁止繁体字 / 错字 / 乱码 / 伪中文，标题字形可体现词义（"秀"的张扬、"赢"下面的贝厚重等）
 - 每张图给 3 个建议优化方向 + 自然语言 → 重新生图
-- **导出 4 种真可交付物**：
-  - **PSD**：服务端用 ag-psd 真生 PSD（底图 + 11 个命名占位图层），PS 直接打开
-  - **HTML**：单文件，contenteditable 可改字
-  - **可编辑 Figma**：导 HTML 后用 [html.to.design](https://html.to.design) 插件 Import 到 Figma
-  - **前端代码**：React 组件 + CSS，文案 / 图 url 都是 prop
+- **导出 5 种交付物 / 工作流包**：
+  - **PSD 工作底稿**：服务端用 ag-psd 真生 PSD（AI 底图 + 11 个命名占位图层），供设计师在 PS 中重建标题 / CTA / QR / 奖品等关键层
+  - **HTML 可编辑预览**：单文件，contenteditable 可改字，用来快速验证文案层
+  - **Figma 还原包**：导出图片、PRD、tokens、图层建议和 1:1 HTML/CSS 还原指令，供代码大模型 + [html.to.design](https://html.to.design) / Codex Figma skill 使用
+  - **React 包装组件**：背景图 + 可替换标题 / CTA / QR 的轻量组件，不是生产级 1:1 前端还原
+  - **JSON / Markdown brief**：给 PM 沉淀用
 - 折叠区还有完整 brief（JSON / Markdown），给 PM 沉淀用
 
 ## 怎么跑
@@ -60,13 +62,43 @@ npm start                  # 等价于 node server.js
 
 | 场景 | 模型 | 端点 | 模式 |
 |---|---|---|---|
-| 默认（中文文字渲染） | `qwen-image-2.0-pro` | `/v1/images/generations` | 异步任务 |
-| 接 img2img（v1 待加） | `gpt-image-2` | 同上，body 加 `image: data:image/...` | 异步任务 |
+| 无参考图 | `gpt-image-2` | `/v1/images/generations` | 文生图，异步任务 |
+| 有参考图 | `gpt-image-2` | 同上，body 加 `image_urls: [...]` | 图生图 / 多参考图，异步任务 |
 
 异步任务流：
 1. POST `/v1/images/generations` → 返回 `task_id`
 2. GET `/v1/tasks/{task_id}` → 轮询直到 `status: completed`
 3. 拿到 `result.images[].url`
+
+## Figma 还原工作流
+
+v0 不直接生成真正可编辑的 Figma 文件。更准确的链路是：
+
+```text
+运营调好的 AI 图片
++ PRD / 运营文案
++ design tokens / style 约束
++ 原始 prompt
+  ↓
+导出「Figma 还原包」
+  ↓
+交给代码大模型 1:1 还原成 HTML/CSS
+  ↓
+用 html.to.design 导入 Figma，或由 Codex 调用 Figma skill 写入 Figma
+  ↓
+UI 人工精修字体、奖品、二维码和组件替换
+```
+
+这样比“图片直接转 Figma”稳定：HTML/CSS 先把标题、CTA、步骤、二维码等变成真实 DOM 层，再导入 Figma 时更容易得到可编辑图层。
+
+## 两条交付路线
+
+```text
+PS 路线：AI 图片 → PSD 工作底稿 → 设计师精修视觉 → 最终 PNG / 海报图
+Figma 路线：AI 图片 + PRD + tokens + 交互说明 → 1:1 HTML/CSS → html.to.design / Figma skill → 可编辑 Figma → 前端交付
+```
+
+PS 路线补的是“图像质量”：错字、二维码、logo、奖品、局部瑕疵。Figma 路线补的是“结构化交付”：文本层、按钮、步骤模块、组件替换和开发协作。
 
 ## 加东西的入口
 
@@ -78,16 +110,15 @@ npm start                  # 等价于 node server.js
 
 ## 已知 v0 局限
 
-- 参考图不参与 img2img（待 v1）
 - "后台" 是 `data.js` 里写死的，没真后台 / 没沉淀 UI
 - 优化建议是基于风格的固定映射，没接 LLM
-- 导出 brief 后还是要人手到 Figma Make / html-to-design 里跑
+- Figma 还原包仍需要代码大模型先生成 1:1 HTML/CSS，再由 html.to.design 或 Codex/Figma skill 导入 Figma
 - 中文艺术字 AI 渲染稳定性有限，PSD/Figma 阶段还会要 UI 调整
 
 ## 几个 v1 候选要做的
 
 - 接 LLM 把"运营大白话"翻成专业 prompt 优化建议
 - 真"后台"：design tokens / 关键问题 / 历史活动 prompt 沉淀
-- 参考图走 gpt-image-2 img2img
 - PRD 上传走解析（mammoth.js）而非粘贴
-- 直接对接 html-to-design 出可编辑 Figma
+- 接代码大模型，直接从 Figma 还原包生成 1:1 HTML/CSS
+- 直接对接 html-to-design / Figma API / Figma skill 出可编辑 Figma

@@ -276,9 +276,9 @@ async function generate() {
   const ctx = buildContext();
   const items = [];
   state.results = [];
-  // 模型固定走 default（gpt-image-2），有参考图就传 image 走 img2img
+  // 模型固定走 default（gpt-image-2）；所有参考图都传给模型做视觉参考
   const model = modelRouting.default.model;
-  const refImage = state.refs.length > 0 ? state.refs[0].dataUrl : null;
+  const refImages = state.refs.map(r => r.dataUrl).filter(Boolean);
   for (const pageId of state.pages) {
     for (const styleId of state.styles) {
       const id = `${pageId}__${styleId}`;
@@ -286,13 +286,13 @@ async function generate() {
       items.push({
         id, prompt, model,
         size: pageSizeHint(pageId),
-        image: refImage,
+        imageUrls: refImages,
       });
       state.results.push({
         id, pageId, styleId, prompt,
         status: 'submitted', url: null, taskId: null,
         optSelected: new Set(), optText: '', history: [],
-        usedRef: !!refImage, model,
+        usedRef: refImages.length > 0, refCount: refImages.length, model,
       });
     }
   }
@@ -384,7 +384,7 @@ function renderResultCard(r) {
 
   const imgWrap = el('div', { class: 'img-wrap' + (r.pageId === 'promo-poster' ? ' poster' : '') });
   if (r.status === 'completed' && r.url) {
-    imgWrap.append(el('img', { src: r.url, alt: `${page.name} × ${style.name}` }));
+    imgWrap.append(el('img', { src: displayImageUrl(r.url), alt: `${page.name} × ${style.name}` }));
   } else if (r.status === 'pending' || r.status === 'submitted') {
     imgWrap.append(el('div', { class: 'spinner' }));
   } else if (r.status === 'error') {
@@ -442,7 +442,7 @@ function renderResultCard(r) {
       onclick: () => navigator.clipboard.writeText(r.prompt).then(() => setStatus('prompt 已复制', 'ok')),
     }, '复制 prompt'),
     r.url ? el('a', {
-      class: 'ghost-btn', href: r.url, target: '_blank', rel: 'noopener',
+      class: 'ghost-btn', href: displayImageUrl(r.url), target: '_blank', rel: 'noopener',
       style: 'text-decoration:none;',
     }, '原图新窗') : null,
   ]);
@@ -473,6 +473,129 @@ function statusLabel(s) {
   return ({ submitted: '已提交', pending: '生成中', completed: '完成', error: '失败' })[s] || s;
 }
 
+function displayImageUrl(url) {
+  if (!url || url.startsWith('data:')) return url;
+  return `/api/image?url=${encodeURIComponent(url)}`;
+}
+
+async function loadDemoResult() {
+  const pageId = 'promo-poster';
+  const styleId = 'prize-stack';
+  state.pages = new Set(['promo-poster']);
+  state.styles = new Set(['prize-stack']);
+  state.ops = structuredClone(defaultOps);
+  state.prdAnswers = { ...defaultOps.prdQuickInfo };
+  state.prdRaw = [
+    '页面用途：班级群 / 朋友圈投放的转介绍推广海报。',
+    '用户动作：家长扫码进入活动页，上传孩子硬件作品，邀请好友点亮星星。',
+    '交付要求：标题、CTA、二维码、活动步骤需要在后续 Figma 中可编辑；奖品和装饰可以先作为视觉资产重建。',
+  ].join('\n');
+  state.special = '汇报 Demo：突出奖品堆、扫码 CTA 和集星规则；视觉要像核桃编程活动物料。';
+  state.designSpecText = '';
+  state.refs = [];
+
+  const ctx = buildContext();
+  const prompt = buildPrompt(pageId, styleId, ctx);
+  const demoUrl = await buildDemoImageDataUrl();
+  state.results = [{
+    id: `${pageId}__${styleId}__demo`,
+    pageId, styleId, prompt,
+    status: 'completed',
+    url: demoUrl,
+    taskId: null,
+    optSelected: new Set(),
+    optText: '',
+    history: [],
+    usedRef: false,
+    refCount: 0,
+    model: modelRouting.default.model,
+    isDemo: true,
+  }];
+
+  $('#prdRaw').value = state.prdRaw;
+  $('#specialInst').value = state.special;
+  $('#designSpecText').value = '';
+  $('#specSource').textContent = '用默认';
+  renderPageChecks();
+  renderOpsFields();
+  renderPrdQuestions();
+  renderStyleChips();
+  updateGenButton();
+  renderResults();
+  renderBriefPreview();
+  setStatus('已载入 Demo 结果，可演示 PSD / HTML / Figma 还原包导出', 'ok');
+}
+
+async function buildDemoImageDataUrl() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1820" viewBox="0 0 1024 1820">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#e53b12"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#8c2608" flood-opacity=".32"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1820" fill="url(#bg)"/>
+  <g opacity=".2" fill="#ffd84a">
+    <circle cx="130" cy="180" r="88"/><circle cx="900" cy="320" r="120"/><circle cx="820" cy="1520" r="160"/>
+  </g>
+  <g fill="#ffd84a" opacity=".85">
+    <path d="M136 488l24 50 55 8-40 39 10 55-49-26-49 26 10-55-40-39 55-8z"/>
+    <path d="M834 728l18 38 42 6-30 30 7 42-37-20-38 20 7-42-30-30 42-6z"/>
+    <path d="M192 1370l17 36 39 6-28 27 7 39-35-18-35 18 7-39-28-27 39-6z"/>
+  </g>
+  <rect x="72" y="68" width="220" height="74" rx="28" fill="#fff" opacity=".95"/>
+  <text x="182" y="116" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="800" fill="#21180f">核桃编程</text>
+  <text x="512" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="96" font-weight="900" fill="#21180f" stroke="#fff" stroke-width="14" paint-order="stroke">秀出你的</text>
+  <text x="512" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="106" font-weight="900" fill="#ffd84a" stroke="#21180f" stroke-width="10" paint-order="stroke">硬件作品</text>
+  <text x="512" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" font-weight="800" fill="#fff">赢取超值学习礼</text>
+  <g filter="url(#shadow)">
+    <rect x="132" y="545" width="760" height="410" rx="48" fill="#fff3d2"/>
+    <rect x="196" y="615" width="190" height="245" rx="24" fill="#ffd84a"/>
+    <rect x="424" y="590" width="220" height="300" rx="22" fill="#fff"/>
+    <rect x="680" y="650" width="150" height="220" rx="22" fill="#ffe9c4"/>
+    <text x="512" y="792" text-anchor="middle" font-family="Arial, sans-serif" font-size="58" font-weight="900" fill="#ff5a1f">奖品堆头</text>
+    <text x="512" y="850" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="#21180f">黄鹤楼 / 航天书 / 核桃币</text>
+  </g>
+  <rect x="88" y="1032" width="848" height="360" rx="44" fill="#fffaf1" filter="url(#shadow)"/>
+  <text x="512" y="1112" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="#21180f">活动参与步骤</text>
+  <circle cx="194" cy="1202" r="48" fill="#ff5a1f"/><text x="194" y="1218" text-anchor="middle" font-family="Arial" font-size="36" font-weight="900" fill="#fff">1</text>
+  <text x="270" y="1194" font-family="Arial" font-size="36" font-weight="900" fill="#21180f">秀硬件作品</text>
+  <text x="270" y="1246" font-family="Arial" font-size="28" font-weight="700" fill="#7d6f62">上传作品，审核通过得 200 核桃币</text>
+  <circle cx="194" cy="1310" r="48" fill="#ff5a1f"/><text x="194" y="1326" text-anchor="middle" font-family="Arial" font-size="36" font-weight="900" fill="#fff">2</text>
+  <text x="270" y="1302" font-family="Arial" font-size="36" font-weight="900" fill="#21180f">集星星领好礼</text>
+  <text x="270" y="1354" font-family="Arial" font-size="28" font-weight="700" fill="#7d6f62">集满 16 颗星，兑换 3000 核桃币</text>
+  <rect x="92" y="1490" width="560" height="126" rx="63" fill="#ffd84a" stroke="#21180f" stroke-width="8" filter="url(#shadow)"/>
+  <text x="372" y="1570" text-anchor="middle" font-family="Arial" font-size="54" font-weight="900" fill="#21180f">扫码立即参与</text>
+  <rect x="704" y="1458" width="220" height="220" rx="28" fill="#fff" stroke="#21180f" stroke-width="8"/>
+  <text x="814" y="1582" text-anchor="middle" font-family="Arial" font-size="40" font-weight="900" fill="#7d6f62">QR</text>
+  <text x="512" y="1732" text-anchor="middle" font-family="Arial" font-size="34" font-weight="800" fill="#fff">更多好礼等你领 · Demo visual</text>
+</svg>`;
+  return await svgToPngDataUrl(svg, 1024, 1820);
+}
+
+function svgToPngDataUrl(svg, width, height) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = reject;
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+}
+
 async function regenerate(r) {
   const addons = [...r.optSelected]
     .map(id => optimizationOptions.find(o => o.id === id)?.addon)
@@ -496,7 +619,7 @@ async function regenerate(r) {
           id: r.id, prompt: newPrompt,
           model: modelRouting.default.model,
           size: pageSizeHint(r.pageId),
-          image: state.refs.length > 0 ? state.refs[0].dataUrl : null,
+          imageUrls: state.refs.map(ref => ref.dataUrl).filter(Boolean),
         }],
       }),
     }).then(x => x.json());
@@ -615,6 +738,97 @@ function buildFigmaMakeBrief(b) {
   }
   L.push(`## 禁忌`);
   for (const t of b.designSpec.taboos) L.push(`- ${t}`);
+  return L.join('\n');
+}
+
+function buildFigmaRestoreBrief(r) {
+  const b = buildBrief();
+  const page = pages[r.pageId];
+  const style = styles[r.styleId];
+  const isCard = r.pageId === 'mini-card';
+  const ops = state.ops;
+  const L = [];
+
+  L.push(`# Figma 还原包：${page.name} × ${style.name}`);
+  L.push('');
+  L.push(`目标：根据最终 AI 出图、PRD、运营文案和设计规范，先 1:1 还原成 HTML/CSS 前端页面，再用 html.to.design 或 Codex/Figma skill 导入 Figma，得到更可编辑的设计稿。`);
+  L.push('');
+  L.push(`## 1. 输入资产`);
+  L.push(`- 最终图片：${r.url}`);
+  L.push(`- 页面类型：${page.name}`);
+  L.push(`- 画面比例：${page.aspect}`);
+  L.push(`- 生成模型：${r.model || modelRouting.default.model}`);
+  L.push(`- 视觉风格：${style.name} — ${style.pitch}`);
+  L.push(`- 参考图数量：${r.refCount || state.refs.length || 0}`);
+  L.push('');
+  L.push(`## 2. 业务文案（必须作为真实文本层还原）`);
+  if (isCard) {
+    L.push(`- 小程序卡片主标题：${ops.miniCardTitle}`);
+    L.push(`- 小程序卡片 CTA：${ops.miniCardCTA}`);
+  } else {
+    L.push(`- 海报主标题：${ops.posterTitleMain}`);
+    L.push(`- 海报副标题：${ops.posterTitleSub}`);
+    L.push(`- 海报 CTA：${ops.posterCTA}`);
+    L.push(`- 海报底部行：${ops.posterFooter}`);
+  }
+  L.push(`- 上传奖励：${ops.uploadReward}`);
+  L.push(`- 集星目标：${ops.starGoal}`);
+  L.push(`- 集星奖励：${ops.starReward}`);
+  L.push(`- 活动时间：${ops.activityTime}`);
+  L.push('');
+  L.push(`## 3. PRD / 运营上下文`);
+  if (state.prdRaw.trim()) {
+    L.push(state.prdRaw.trim());
+  } else {
+    const entries = Object.entries(state.prdAnswers || {}).filter(([, v]) => v?.trim());
+    if (entries.length) {
+      for (const [k, v] of entries) L.push(`- ${k}: ${v.trim()}`);
+    } else {
+      L.push('（无额外 PRD，上下文以默认活动模板和运营字段为准）');
+    }
+  }
+  if (state.special.trim()) L.push(`- 运营特殊指令：${state.special.trim()}`);
+  L.push('');
+  L.push(`## 4. Design tokens / 样式约束`);
+  L.push(`- Brand：${b.designSpec.brand}`);
+  L.push(`- Primary：${b.designSpec.primary}`);
+  L.push(`- Accent：${b.designSpec.accent}`);
+  L.push(`- Ink：${b.designSpec.ink}`);
+  L.push(`- Soft background：${b.designSpec.bgSoft}`);
+  L.push(`- CTA：${b.designSpec.ctaShape}`);
+  L.push(`- 字体感觉：${b.designSpec.fontFeel}`);
+  if (b.designSpec._override) L.push(`- 本次覆盖：${b.designSpec._override}`);
+  L.push(`- 禁忌：${b.designSpec.taboos.join('；')}`);
+  L.push('');
+  L.push(`## 5. 建议可编辑图层`);
+  [
+    '01 Background: 用 AI 图片作为视觉参考，不要只铺一张背景图交差',
+    '02 Brand Logo: 顶部品牌标识，找不到真实 logo 时用占位',
+    '03 Title Text: 主标题真实文本层，允许描边/阴影模拟',
+    '04 Title Stroke / Decoration: 标题描边、括号、贴纸、强调线',
+    '05 Hero Visual: 孩子/硬件/奖品主视觉，可先用图片裁切占位',
+    '06 Prize Assets: 奖品堆、核桃币、徽章',
+    '07 Step Panel: 活动步骤面板',
+    '08 Step Text: 步骤说明真实文本层',
+    '09 CTA: CTA 按钮真实文本层',
+    '10 QR Placeholder: 二维码占位，禁止生成可扫码假码',
+    '11 Decorations: 星星、贴纸、半色调点、sparkle 等装饰',
+  ].forEach(line => L.push(`- ${line}`));
+  L.push('');
+  L.push(`## 6. 给代码大模型的 1:1 HTML/CSS 还原指令`);
+  L.push(`请把“最终图片”当作视觉基准，结合上面的 PRD、文案和 design tokens，生成一个单文件 HTML/CSS 页面，用于导入 html.to.design。要求：`);
+  L.push(`- 画布比例必须是 ${page.aspect}，桌面预览宽度建议 ${isCard ? '600px' : '420px'}，使用 aspect-ratio 锁定比例。`);
+  L.push(`- 尽量 1:1 还原图片的视觉层级、间距、色块、标题位置、CTA、QR 占位和装饰密度。`);
+  L.push(`- 关键中文文案必须是 DOM 文本，不要烘焙在背景图里。`);
+  L.push(`- 可以把复杂奖品/人物/装饰作为裁切图片或局部背景，但标题、CTA、步骤、活动时间、QR 必须可编辑。`);
+  L.push(`- CSS 使用上面的 tokens 作为变量，例如 --brand-orange、--accent-yellow、--ink、--bg-soft。`);
+  L.push(`- 不要输出 React，不要输出 Tailwind 配置，只输出可直接打开的 HTML 文件。`);
+  L.push(`- 页面导入 Figma 后，图层命名尽量对应“建议可编辑图层”。`);
+  L.push('');
+  L.push(`## 7. 原始生图 prompt`);
+  L.push('```text');
+  L.push(r.prompt);
+  L.push('```');
   return L.join('\n');
 }
 
@@ -785,12 +999,11 @@ function exportHtml() {
 }
 
 function exportFigma() {
-  // v0：先导 HTML，提示用户用 html.to.design 插件
   const r = getSelectedResult();
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
-  const html = buildHtmlSingleFile(r);
-  downloadFile(`walnut-${r.pageId}-${r.styleId}-for-figma-${Date.now()}.html`, html, 'text/html');
-  setStatus('已导 HTML，下一步：在 Figma 装 html.to.design 插件 → Import HTML File', 'ok');
+  const brief = buildFigmaRestoreBrief(r);
+  downloadFile(`walnut-${r.pageId}-${r.styleId}-figma-restore-${Date.now()}.md`, brief, 'text/markdown');
+  setStatus('Figma 还原包已下载：交给代码大模型生成 1:1 HTML，再导入 html.to.design', 'ok');
 }
 
 function buildReactComponent(r) {
@@ -957,6 +1170,7 @@ function init() {
     $('#specSource').textContent = e.target.value.trim() ? '本次覆盖' : '用默认';
   };
   $('#generateBtn').onclick = generate;
+  $('#loadDemoBtn').onclick = loadDemoResult;
   $('#resetBtn').onclick = () => {
     state.pages = new Set(['mini-card', 'promo-poster']);
     state.styles = new Set(['comic-show-off', 'prize-stack']);
@@ -969,6 +1183,7 @@ function init() {
     state.designSpecText = '';
     state.results = [];
     $('#specialInst').value = '';
+    $('#prdRaw').value = '';
     $('#designSpecText').value = '';
     $('#specSource').textContent = '用默认';
     init();

@@ -56,6 +56,9 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/export/png' && req.method === 'GET') {
       return await handleExportPng(res, u.searchParams.get('url'), u.searchParams.get('name'));
     }
+    if (u.pathname === '/api/image' && req.method === 'GET') {
+      return await handleImageProxy(res, u.searchParams.get('url'));
+    }
     return serveStatic(res, u.pathname);
   } catch (err) {
     console.error('Server error:', err);
@@ -85,9 +88,10 @@ async function handleGenerate(req, res) {
       size: it.size || '1:1',
       n: 1,
     };
-    // 图生图：把参考图 base64 加进 body
-    if (it.image && typeof it.image === 'string' && it.image.startsWith('data:')) {
-      payload.image = it.image;
+    // 图生图：APIMart gpt-image-2 使用 image_urls，最多 16 张参考图，可混合 URL/base64
+    const imageUrls = normalizeImageUrls(it).slice(0, 16);
+    if (imageUrls.length) {
+      payload.image_urls = imageUrls;
     }
     try {
       const r = await fetch(`${APIMART_BASE}/images/generations`, {
@@ -123,12 +127,9 @@ async function handleGenerate(req, res) {
 
 async function handleExportPng(res, imageUrl, name) {
   if (!imageUrl) return json(res, 400, { error: 'url 必填' });
-  // 简单校验：只允许 http/https
-  if (!/^https?:\/\//i.test(imageUrl)) return json(res, 400, { error: 'url 非法' });
+  if (!isSupportedImageSource(imageUrl)) return json(res, 400, { error: 'url 非法' });
   try {
-    const r = await fetch(imageUrl);
-    if (!r.ok) return json(res, 502, { error: `源站返回 ${r.status}` });
-    const buf = Buffer.from(await r.arrayBuffer());
+    const buf = await readImageBuffer(imageUrl);
     const safeName = `walnut-${Date.now()}.png`;
     const utf8Name = (name || safeName) + (name?.endsWith('.png') ? '' : '.png');
     res.writeHead(200, {
@@ -139,6 +140,22 @@ async function handleExportPng(res, imageUrl, name) {
     res.end(buf);
   } catch (e) {
     return json(res, 500, { error: 'PNG 代理失败：' + (e?.message || e) });
+  }
+}
+
+async function handleImageProxy(res, imageUrl) {
+  if (!imageUrl) return json(res, 400, { error: 'url 必填' });
+  if (!isSupportedImageSource(imageUrl)) return json(res, 400, { error: 'url 非法' });
+  try {
+    const buf = await readImageBuffer(imageUrl);
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=3600',
+      'Content-Length': buf.length,
+    });
+    res.end(buf);
+  } catch (e) {
+    return json(res, 500, { error: '图片代理失败：' + (e?.message || e) });
   }
 }
 
@@ -184,13 +201,42 @@ async function handleTask(res, taskId) {
   return json(res, 200, { status, urls, raw: data });
 }
 
+function normalizeImageUrls(item) {
+  const raw = [];
+  if (Array.isArray(item?.imageUrls)) raw.push(...item.imageUrls);
+  if (Array.isArray(item?.image_urls)) raw.push(...item.image_urls);
+  if (Array.isArray(item?.images)) raw.push(...item.images);
+  if (Array.isArray(item?.image)) raw.push(...item.image);
+  else if (typeof item?.image === 'string') raw.push(item.image);
+  return raw
+    .filter(v => typeof v === 'string')
+    .map(v => v.trim())
+    .filter(v => /^data:image\//i.test(v) || /^https?:\/\//i.test(v));
+}
+
+function isSupportedImageSource(src) {
+  return typeof src === 'string' && (/^https?:\/\//i.test(src) || /^data:image\//i.test(src));
+}
+
+async function readImageBuffer(src) {
+  if (src.startsWith('data:image/')) {
+    const m = src.match(/^data:image\/[a-z0-9.+-]+;base64,(.+)$/i);
+    if (!m) throw new Error('不支持的 data image 格式');
+    return Buffer.from(m[1], 'base64');
+  }
+  const r = await fetch(src);
+  if (!r.ok) throw new Error(`源站返回 ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
 // ----------------------------- 静态文件 -----------------------------
 
 function serveStatic(res, pathname) {
-  const filePath = pathname === '/'
+  const filePath = path.resolve(pathname === '/'
     ? path.join(__dirname, 'index.html')
-    : path.join(__dirname, pathname);
-  if (!filePath.startsWith(__dirname)) {
+    : path.join(__dirname, pathname));
+  const rel = path.relative(__dirname, filePath);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
     res.writeHead(403); return res.end('forbidden');
   }
   fs.stat(filePath, (err, stat) => {
