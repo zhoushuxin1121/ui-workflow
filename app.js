@@ -7,6 +7,21 @@ import {
   buildPrompt, summarizePrdInfo, buildOptimizedPrompt,
   suggestOptimizations, pageSizeHint,
 } from './prompts.js';
+import { writePsdBuffer } from 'https://esm.sh/ag-psd@30.1.1?bundle';
+
+const PSD_LAYER_NAMES = [
+  '01 Background',
+  '02 Brand Logo',
+  '03 Title Text',
+  '04 Title Stroke / Decoration',
+  '05 Hero Visual',
+  '06 Prize Assets',
+  '07 Step Panel',
+  '08 Step Text',
+  '09 CTA',
+  '10 QR Placeholder',
+  '11 Decorations',
+];
 
 // ==========================================================================
 // State
@@ -892,23 +907,54 @@ async function exportPsd() {
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
   setStatus('生成 PSD…');
   try {
-    const resp = await fetch('/api/export/psd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageUrl: r.url,
-        pageName: pages[r.pageId].name,
-        styleName: styles[r.styleId].name,
-        prompt: r.prompt,
-        ops: state.ops,
-      }),
-    });
+    // 走 /api/export/png 代理拿同源 PNG bytes，规避 apimart CDN 的 CORS
+    const proxied = `/api/export/png?url=${encodeURIComponent(r.url)}`;
+    const resp = await fetch(proxied);
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${resp.status}`);
     }
     const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
+    const bitmap = await createImageBitmap(blob);
+    const { width, height } = bitmap;
+
+    // 把图绘到 canvas 拿 RGBA Uint8ClampedArray
+    const canvas = ('OffscreenCanvas' in window)
+      ? new OffscreenCanvas(width, height)
+      : Object.assign(document.createElement('canvas'), { width, height });
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    const imageData = ctx.getImageData(0, 0, width, height);
+
+    // 11 个命名图层：底层带 imageData，其余 10 个空占位（保留给设计师在 PS 里填）
+    const placeholderLayers = PSD_LAYER_NAMES.slice(1).map(name => ({
+      name,
+      left: 0, top: 0, right: width, bottom: height,
+      canvas: undefined,
+      hidden: false,
+      opacity: 255,
+    }));
+    const psd = {
+      width,
+      height,
+      children: [
+        {
+          name: PSD_LAYER_NAMES[0],
+          left: 0, top: 0, right: width, bottom: height,
+          imageData: {
+            width,
+            height,
+            data: imageData.data,
+          },
+        },
+        ...placeholderLayers,
+      ],
+    };
+
+    const bytes = writePsdBuffer(psd);
+    const psdBlob = new Blob([bytes], { type: 'image/vnd.adobe.photoshop' });
+    const url = URL.createObjectURL(psdBlob);
     const a = el('a', { href: url, download: `walnut-${r.pageId}-${r.styleId}-${Date.now()}.psd` });
     document.body.append(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
