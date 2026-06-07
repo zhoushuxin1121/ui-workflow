@@ -1,6 +1,7 @@
 import {
   activityTemplate, pages, styles, fontStyles,
-  keyQuestions, optimizationOptions,
+  visualDirections, explorationLevels,
+  keyQuestions, optimizationOptions, globalUpdateOptions,
   defaultDesignSpec, defaultOps, modelRouting,
 } from './data.js';
 import {
@@ -28,8 +29,15 @@ const PSD_LAYER_NAMES = [
 // ==========================================================================
 
 const state = {
-  pages: new Set(['mini-card', 'promo-poster']),
-  styles: new Set(['comic-show-off', 'prize-stack']),
+  pages: new Set(['mini-card', 'promo-poster', 'upload-page']),
+  styles: new Set(['prize-stack']),
+  styleLock: {
+    directionId: 'reward-lively',
+    explorationId: 'light',
+    density: '标准',
+    avoid: '不要太花；不要像淘宝广告；不要小字太多',
+    globalNotes: [],
+  },
   fontStyle: 'default-walnut',   // v0：单一字体作用全图
   fontCustom: '',                // 自定义字体描述（仅 fontStyle === 'custom' 时用）
   prdRaw: '',
@@ -94,13 +102,15 @@ function renderPageChecks() {
     cb.checked = state.pages.has(p.id);
     cb.addEventListener('change', () => {
       if (cb.checked) state.pages.add(p.id); else state.pages.delete(p.id);
+      renderPageChecks();
+      renderPageConfigs();
       updateGenButton();
     });
     box.append(el('label', {}, [
       cb,
       el('div', {}, [
         el('div', { class: 'name' }, `${p.name} (${p.aspect})`),
-        el('div', { class: 'meta' }, p.use),
+        el('div', { class: 'meta' }, p.structure || p.use),
       ]),
     ]));
   }
@@ -111,17 +121,12 @@ function renderPageChecks() {
 // ==========================================================================
 
 const opsBasicFields = [
-  { key: 'activityName',    label: '活动名称',  full: true, hint: '会被填进参考图固定 prompt 的 "xxxxx" 位置' },
-  { key: 'miniCardTitle',   label: '小程序卡片主标题' },
-  { key: 'miniCardCTA',     label: '小程序卡片 CTA' },
-  { key: 'posterTitleMain', label: '海报主标题' },
-  { key: 'posterTitleSub',  label: '海报副标题' },
-  { key: 'posterCTA',       label: '海报 CTA' },
-  { key: 'posterFooter',    label: '海报底部行' },
-  { key: 'uploadReward',    label: '上传奖励',  placeholder: '例：200 核桃币' },
-  { key: 'starGoal',        label: '集星目标',  placeholder: '例：16 颗星星' },
-  { key: 'starReward',      label: '集星奖励',  placeholder: '例：3000 核桃币' },
-  { key: 'activityTime',    label: '活动时间',  placeholder: '例：2026-05-10 ~ 2026-05-31' },
+  { key: 'activityName',    label: '活动标题', full: true, hint: '三个页面共用，必须逐字准确' },
+  { key: 'prizeList',       label: '奖品/学习礼清单', full: true, type: 'textarea', placeholder: '例：黄鹤楼拼接积木；中国航天立体翻翻书；传统节日卡通拼图' },
+  { key: 'rewardRule',      label: '奖励规则', full: true, type: 'textarea', placeholder: '例：集满 16 颗星星，获得 3000 核桃币' },
+  { key: 'uploadTask',      label: '上传任务说明', full: true, type: 'textarea', placeholder: '例：横屏拍摄孩子手拿硬件作品和编程界面的合照' },
+  { key: 'uploadExample',   label: '上传示例图说明', placeholder: '例：孩子手拿硬件作品 + 编程界面合照' },
+  { key: 'requiredAssets',  label: '必须出现素材', placeholder: '例：logo、星星 IP、金币、礼盒、奖品图' },
 ];
 
 function renderOpsFields() {
@@ -129,17 +134,77 @@ function renderOpsFields() {
   if (!box) return;
   box.innerHTML = '';
   for (const f of opsBasicFields) {
-    const input = el('input', {
-      type: 'text',
-      placeholder: f.placeholder || '',
-      value: state.ops[f.key] ?? '',
-    });
+    const input = f.type === 'textarea'
+      ? el('textarea', { rows: 2, placeholder: f.placeholder || '' })
+      : f.type === 'select'
+        ? el('select', {}, (f.options || []).map(o => el('option', { value: o }, o)))
+      : el('input', { type: 'text', placeholder: f.placeholder || '', value: state.ops[f.key] ?? '' });
+    if (f.type === 'textarea') input.value = state.ops[f.key] ?? '';
+    if (f.type === 'select') input.value = state.ops[f.key] ?? f.options?.[0] ?? '';
     input.addEventListener('input', () => { state.ops[f.key] = input.value; });
     const label = el('label', {
       class: 'field' + (f.full ? ' full' : ''),
       title: f.hint || '',
     }, [el('span', {}, f.label), input]);
     box.append(label);
+  }
+}
+
+function renderPageConfigs() {
+  const box = $('#pageConfig');
+  if (!box) return;
+  box.innerHTML = '';
+  const blocks = [
+    {
+      id: 'mini-card',
+      title: '小程序卡片独有内容',
+      tag: '',
+      fields: [
+        { key: 'miniCardCTA', label: 'CTA 文案', type: 'text', disabled: true },
+      ],
+    },
+    {
+      id: 'promo-poster',
+      title: '推广海报独有内容',
+      tag: '',
+      fields: [
+        { key: 'posterCTA', label: '扫码区文案', type: 'text' },
+        { key: 'posterFooter', label: '辅助文案', type: 'text' },
+      ],
+    },
+    {
+      id: 'upload-page',
+      title: '上传页独有内容',
+      tag: '',
+      fields: [
+        { key: 'uploadSubtitle', label: '活动副文案', type: 'text' },
+        { key: 'uploadCTA', label: '上传 CTA', type: 'text' },
+      ],
+    },
+  ];
+
+  for (const block of blocks) {
+    const enabled = state.pages.has(block.id);
+    const body = el('div', { class: 'page-config-body' });
+    for (const f of block.fields) {
+      let input;
+      if (f.type === 'select') {
+        input = el('select', {}, f.options.map(o => el('option', { value: o }, o)));
+        input.value = state.ops[f.key] ?? f.options[0];
+      } else {
+        input = el('input', { type: 'text', value: state.ops[f.key] ?? '', disabled: !!f.disabled });
+      }
+      input.addEventListener('input', () => { state.ops[f.key] = input.value; });
+      input.addEventListener('change', () => { state.ops[f.key] = input.value; });
+      body.append(el('label', { class: 'field' }, [el('span', {}, f.label), input]));
+    }
+    box.append(el('section', { class: 'page-config-block' + (enabled ? '' : ' disabled') }, [
+      el('div', { class: 'page-config-head' }, [
+        el('strong', {}, block.title),
+        enabled && block.tag ? el('span', { class: 'scope-pill' }, block.tag) : (!enabled ? el('span', { class: 'scope-pill' }, '未选中，已禁用') : null),
+      ]),
+      enabled ? body : null,
+    ]));
   }
 }
 
@@ -232,25 +297,114 @@ function renderFontChips() {
 }
 
 // ==========================================================================
-// Render: Step 7 / styles
+// Render: Step 7 / Campaign Style Lock
 // ==========================================================================
 
+function syncStyleFromStyleLock() {
+  const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
+  state.styles = new Set([direction.styleId]);
+}
+
+function getStyleLockCompiled() {
+  const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
+  const exploration = explorationLevels[state.styleLock.explorationId] || explorationLevels.light;
+  return {
+    directionId: direction.id,
+    directionName: direction.name,
+    explorationId: exploration.id,
+    explorationName: exploration.name,
+    density: state.styleLock.density,
+    avoid: state.styleLock.avoid,
+    operatorIntent: direction.operatorIntent,
+    background: direction.background,
+    titleEffect: direction.titleEffect,
+    color: direction.color,
+    button: direction.button,
+    prizeLayout: direction.prizeLayout,
+    decoration: direction.decoration,
+    directionPrompt: direction.prompt,
+    explorationPrompt: exploration.prompt,
+    globalNotes: state.styleLock.globalNotes,
+  };
+}
+
 function renderStyleChips() {
-  const box = $('#styleChips');
-  box.innerHTML = '';
-  for (const s of Object.values(styles)) {
-    const chip = el('span', {
-      class: 'style-chip' + (state.styles.has(s.id) ? ' active' : ''),
-      title: s.pitch,
-      onclick: () => {
-        if (state.styles.has(s.id)) state.styles.delete(s.id);
-        else state.styles.add(s.id);
-        chip.classList.toggle('active');
-        updateGenButton();
-      },
-    }, s.name);
-    box.append(chip);
+  syncStyleFromStyleLock();
+
+  const styleBox = $('#styleChips');
+  if (styleBox) {
+    styleBox.innerHTML = '';
+    for (const d of Object.values(visualDirections)) {
+      styleBox.append(el('span', {
+        class: 'style-chip' + (state.styleLock.directionId === d.id ? ' active' : ''),
+        title: d.operatorIntent,
+        onclick: () => {
+          state.styleLock.directionId = d.id;
+          syncStyleFromStyleLock();
+          renderStyleChips();
+          updateGenButton();
+          renderBriefPreview();
+        },
+      }, d.name));
+    }
   }
+
+  const exploreBox = $('#exploreChips');
+  if (exploreBox) {
+    exploreBox.innerHTML = '';
+    for (const ex of Object.values(explorationLevels)) {
+      exploreBox.append(el('span', {
+        class: 'style-chip' + (state.styleLock.explorationId === ex.id ? ' active' : ''),
+        title: ex.prompt,
+        onclick: () => {
+          state.styleLock.explorationId = ex.id;
+          renderStyleChips();
+          renderBriefPreview();
+        },
+      }, ex.name));
+    }
+  }
+
+  const densityBox = $('#densityChips');
+  if (densityBox) {
+    densityBox.innerHTML = '';
+    for (const density of ['清爽', '标准', '热闹']) {
+      densityBox.append(el('span', {
+        class: 'style-chip' + (state.styleLock.density === density ? ' active' : ''),
+        onclick: () => {
+          state.styleLock.density = density;
+          renderStyleChips();
+          renderBriefPreview();
+        },
+      }, density));
+    }
+  }
+
+  const avoid = $('#styleAvoid');
+  if (avoid) {
+    avoid.value = state.styleLock.avoid || '';
+    avoid.oninput = (e) => {
+      state.styleLock.avoid = e.target.value;
+      renderStyleLockSummary();
+      renderBriefPreview();
+    };
+  }
+
+  renderStyleLockSummary();
+}
+
+function renderStyleLockSummary() {
+  const box = $('#styleLockSummary');
+  if (!box) return;
+  const lock = getStyleLockCompiled();
+  box.innerHTML = '';
+  box.append(
+    el('div', { class: 'style-lock-row' }, [el('strong', {}, '背景氛围'), el('span', {}, lock.background)]),
+    el('div', { class: 'style-lock-row' }, [el('strong', {}, '标题字效'), el('span', {}, lock.titleEffect)]),
+    el('div', { class: 'style-lock-row' }, [el('strong', {}, '色彩倾向'), el('span', {}, lock.color)]),
+    el('div', { class: 'style-lock-row' }, [el('strong', {}, '按钮样式'), el('span', {}, lock.button)]),
+    el('div', { class: 'style-lock-row' }, [el('strong', {}, '奖品摆放'), el('span', {}, lock.prizeLayout)]),
+  );
 }
 
 // ==========================================================================
@@ -258,9 +412,10 @@ function renderStyleChips() {
 // ==========================================================================
 
 function updateGenButton() {
+  syncStyleFromStyleLock();
   const n = state.pages.size * state.styles.size;
   const btn = $('#generateBtn');
-  btn.textContent = `▶ 生成 ${n} 张图`;
+  btn.textContent = `▶ 生成 ${n} 张页面图`;
   btn.disabled = n === 0;
 }
 
@@ -284,10 +439,12 @@ function buildContext() {
     special: state.special,
     refs: state.refs,
     fontStyle: { id: state.fontStyle, name: fontName, prompt: fontPrompt },
+    styleLock: getStyleLockCompiled(),
   };
 }
 
 async function generate() {
+  syncStyleFromStyleLock();
   const ctx = buildContext();
   const items = [];
   state.results = [];
@@ -306,7 +463,7 @@ async function generate() {
       state.results.push({
         id, pageId, styleId, prompt,
         status: 'submitted', url: null, taskId: null,
-        optSelected: new Set(), optText: '', history: [],
+        optSelected: new Set(), optText: '', history: [], localDeltas: [],
         usedRef: refImages.length > 0, refCount: refImages.length, model,
       });
     }
@@ -396,10 +553,11 @@ function renderResultCard(r) {
   const page = pages[r.pageId];
   const style = styles[r.styleId];
   const suggested = suggestOptimizations(r.pageId, r.styleId, optimizationOptions);
+  const styleLock = getStyleLockCompiled();
 
-  const imgWrap = el('div', { class: 'img-wrap' + (r.pageId === 'promo-poster' ? ' poster' : '') });
+  const imgWrap = el('div', { class: 'img-wrap' + (r.pageId !== 'mini-card' ? ' poster' : '') });
   if (r.status === 'completed' && r.url) {
-    imgWrap.append(el('img', { src: displayImageUrl(r.url), alt: `${page.name} × ${style.name}` }));
+    imgWrap.append(el('img', { src: displayImageUrl(r.url), alt: `${page.name} · ${styleLock.directionName}` }));
   } else if (r.status === 'pending' || r.status === 'submitted') {
     imgWrap.append(el('div', { class: 'spinner' }));
   } else if (r.status === 'error') {
@@ -410,8 +568,12 @@ function renderResultCard(r) {
 
   const badge = el('span', { class: 'badge ' + statusClass(r.status) }, statusLabel(r.status));
 
-  // 优化 chips（建议 3 个 + 全部 chips 可展开）
-  const optRow = el('div', { class: 'opt-row' });
+  const scopeHint = el('div', { class: 'scope-hint' }, [
+    el('span', { class: 'scope-pill local' }, 'Local Delta'),
+    el('span', {}, '只修改这张图，继续继承当前 Campaign Style Lock'),
+  ]);
+
+  const optRow = el('div', { class: 'opt-row scoped' });
   for (const opt of suggested) {
     const chip = el('span', {
       class: 'opt-chip' + (r.optSelected.has(opt.id) ? ' active' : ''),
@@ -419,6 +581,8 @@ function renderResultCard(r) {
         if (r.optSelected.has(opt.id)) r.optSelected.delete(opt.id);
         else r.optSelected.add(opt.id);
         chip.classList.toggle('active');
+        r.localDeltas = [...r.optSelected].map(id => optimizationOptions.find(o => o.id === id)?.label).filter(Boolean);
+        renderBriefPreview();
       },
     }, opt.label);
     optRow.append(chip);
@@ -435,6 +599,8 @@ function renderResultCard(r) {
             if (r.optSelected.has(o.id)) r.optSelected.delete(o.id);
             else r.optSelected.add(o.id);
             chip.classList.toggle('active');
+            r.localDeltas = [...r.optSelected].map(id => optimizationOptions.find(opt => opt.id === id)?.label).filter(Boolean);
+            renderBriefPreview();
           },
         }, o.label);
         return chip;
@@ -442,16 +608,28 @@ function renderResultCard(r) {
   ]);
 
   const optText = el('textarea', {
-    rows: 2, placeholder: '我想怎么改这版？（可选）',
-    oninput: (e) => { r.optText = e.target.value; },
+    rows: 2, placeholder: '只改这张图的具体要求，例如：这张上传按钮再明显一点',
+    oninput: (e) => { r.optText = e.target.value; renderBriefPreview(); },
   });
   optText.value = r.optText;
+
+  const globalBox = el('div', { class: 'global-update-box' }, [
+    el('div', { class: 'scope-hint' }, [
+      el('span', { class: 'scope-pill global' }, 'Global Update'),
+      el('span', {}, '会更新整套图的 Campaign Style Lock，需要重新生成整套页面'),
+    ]),
+    el('div', { class: 'opt-row scoped' }, globalUpdateOptions.map(o => el('span', {
+      class: 'opt-chip global',
+      title: o.addon,
+      onclick: () => applyGlobalUpdate(o),
+    }, o.label))),
+  ]);
 
   const actions = el('div', { class: 'actions' }, [
     el('button', {
       class: 'primary-btn', type: 'button',
       onclick: () => regenerate(r),
-    }, '应用优化重生成'),
+    }, '应用局部修改重生成'),
     el('button', {
       class: 'ghost-btn', type: 'button',
       onclick: () => navigator.clipboard.writeText(r.prompt).then(() => setStatus('prompt 已复制', 'ok')),
@@ -469,16 +647,38 @@ function renderResultCard(r) {
 
   return el('article', { class: 'result-card' }, [
     el('div', { class: 'head' }, [
-      el('div', { class: 'name' }, `${page.name} × ${style.name}`),
+      el('div', { class: 'name' }, `${page.name} · ${styleLock.directionName}`),
       badge,
     ]),
     imgWrap,
+    el('div', { class: 'result-meta' }, [
+      el('span', {}, `页面结构：${page.structure || page.mainElement}`),
+      el('span', {}, `继承风格：${style.name}`),
+    ]),
+    scopeHint,
     optRow,
     moreOpts,
     optText,
+    globalBox,
     actions,
     promptBlock,
   ]);
+}
+
+function applyGlobalUpdate(option) {
+  if (!option?.directionId) return;
+  state.styleLock.directionId = option.directionId;
+  state.styleLock.globalNotes.push({
+    at: new Date().toISOString(),
+    label: option.label,
+    addon: option.addon,
+  });
+  syncStyleFromStyleLock();
+  renderStyleChips();
+  renderResults();
+  renderBriefPreview();
+  updateGenButton();
+  setStatus(`${option.label} 已写入 Campaign Style Lock；请重新生成整套页面`, 'ok');
 }
 
 function statusClass(s) {
@@ -495,9 +695,16 @@ function displayImageUrl(url) {
 
 async function loadDemoResult() {
   const pageId = 'promo-poster';
-  const styleId = 'prize-stack';
-  state.pages = new Set(['promo-poster']);
-  state.styles = new Set(['prize-stack']);
+  state.pages = new Set(['mini-card', 'promo-poster', 'upload-page']);
+  state.styleLock = {
+    directionId: 'reward-lively',
+    explorationId: 'light',
+    density: '标准',
+    avoid: '不要太花；不要像淘宝广告；不要小字太多',
+    globalNotes: [],
+  };
+  syncStyleFromStyleLock();
+  const styleId = [...state.styles][0];
   state.ops = structuredClone(defaultOps);
   state.prdAnswers = { ...defaultOps.prdQuickInfo };
   state.prdRaw = [
@@ -521,6 +728,7 @@ async function loadDemoResult() {
     optSelected: new Set(),
     optText: '',
     history: [],
+    localDeltas: [],
     usedRef: false,
     refCount: 0,
     model: modelRouting.default.model,
@@ -532,6 +740,7 @@ async function loadDemoResult() {
   $('#designSpecText').value = '';
   $('#specSource').textContent = '用默认';
   renderPageChecks();
+  renderPageConfigs();
   renderOpsFields();
   renderPrdQuestions();
   renderStyleChips();
@@ -622,7 +831,7 @@ async function regenerate(r) {
   r.url = null;
   r.taskId = null;
   renderResults();
-  setStatus(`提交优化（${pages[r.pageId].name} × ${styles[r.styleId].name}）…`);
+  setStatus(`提交局部修改（${pages[r.pageId].name} · ${getStyleLockCompiled().directionName}）…`);
 
   let resp;
   try {
@@ -666,6 +875,7 @@ function buildBrief() {
     activity: activityTemplate,
     pages: [...state.pages].map(id => pages[id]),
     styles: [...state.styles].map(id => styles[id]),
+    styleLock: getStyleLockCompiled(),
     designSpec: state.designSpecText.trim()
       ? { ...defaultDesignSpec, _override: state.designSpecText.trim() }
       : defaultDesignSpec,
@@ -677,6 +887,7 @@ function buildBrief() {
       id: r.id, page: pages[r.pageId].name, style: styles[r.styleId].name,
       status: r.status, url: r.url, prompt: r.prompt,
       optSelected: [...r.optSelected], optText: r.optText,
+      localDeltas: r.localDeltas || [],
     })),
   };
 }
@@ -690,8 +901,16 @@ function buildMarkdown(b) {
   L.push(`## 选中页面`);
   for (const p of b.pages) L.push(`- ${p.name}（${p.aspect}，${p.use}）`);
   L.push('');
-  L.push(`## 选中风格`);
-  for (const s of b.styles) L.push(`- ${s.name} — ${s.pitch}`);
+  L.push(`## Campaign Style Lock`);
+  L.push(`- 视觉方向：${b.styleLock.directionName}`);
+  L.push(`- 探索程度：${b.styleLock.explorationName}`);
+  L.push(`- 画面密度：${b.styleLock.density}`);
+  L.push(`- 背景氛围：${b.styleLock.background}`);
+  L.push(`- 标题字效：${b.styleLock.titleEffect}`);
+  L.push(`- 色彩倾向：${b.styleLock.color}`);
+  L.push(`- 按钮样式：${b.styleLock.button}`);
+  L.push(`- 奖品摆放：${b.styleLock.prizeLayout}`);
+  if (b.styleLock.avoid) L.push(`- 不想要：${b.styleLock.avoid}`);
   L.push('');
   L.push(`## PRD 关键信息`);
   if (b.prd.raw?.trim()) { L.push('### 原文'); L.push('```'); L.push(b.prd.raw.trim()); L.push('```'); }
@@ -709,9 +928,9 @@ function buildMarkdown(b) {
   L.push('');
   L.push(`## 生成结果`);
   for (const r of b.results) {
-    L.push(`### ${r.page} × ${r.style} — ${r.status}`);
+    L.push(`### ${r.page} · ${b.styleLock.directionName} — ${r.status}`);
     if (r.url) L.push(`- 图：${r.url}`);
-    if (r.optSelected.length) L.push(`- 已应用优化：${r.optSelected.join(', ')}`);
+    if (r.localDeltas?.length) L.push(`- 单页 Local Delta：${r.localDeltas.join('、')}`);
     if (r.optText) L.push(`- 优化备注：${r.optText}`);
     L.push('```');
     L.push(r.prompt);
@@ -737,6 +956,15 @@ function buildFigmaMakeBrief(b) {
   L.push(`## 字体感觉`);
   L.push(b.designSpec.fontFeel);
   L.push(``);
+  L.push(`## Campaign Style Lock`);
+  L.push(`- 视觉方向：${b.styleLock.directionName}`);
+  L.push(`- 背景氛围：${b.styleLock.background}`);
+  L.push(`- 标题字效：${b.styleLock.titleEffect}`);
+  L.push(`- 色彩倾向：${b.styleLock.color}`);
+  L.push(`- 按钮样式：${b.styleLock.button}`);
+  L.push(`- 奖品摆放：${b.styleLock.prizeLayout}`);
+  L.push(`- 装饰规则：${b.styleLock.decoration}`);
+  L.push(``);
   L.push(`## 通用图层骨架（与导出 Figma 对齐）`);
   ['01 Background', '02 Brand Logo', '03 Title Text', '04 Title Stroke / Decoration',
    '05 Hero Visual', '06 Prize Assets', '07 Step Panel', '08 Step Text',
@@ -744,7 +972,7 @@ function buildFigmaMakeBrief(b) {
   L.push(``);
   for (const r of b.results) {
     if (r.status !== 'completed') continue;
-    L.push(`## ${r.page} × ${r.style}`);
+    L.push(`## ${r.page} · ${b.styleLock.directionName}`);
     L.push(`- 尺寸：${b.pages.find(p => p.name === r.page)?.aspect || ''}`);
     L.push(`- AI 输出图：${r.url}`);
     L.push(`- 原始 prompt：见 JSON brief`);
@@ -761,10 +989,12 @@ function buildFigmaRestoreBrief(r) {
   const page = pages[r.pageId];
   const style = styles[r.styleId];
   const isCard = r.pageId === 'mini-card';
+  const isUpload = r.pageId === 'upload-page';
   const ops = state.ops;
+  const sharedTitle = ops.activityName || '秀硬件作品赢超值好礼';
   const L = [];
 
-  L.push(`# Figma 还原包：${page.name} × ${style.name}`);
+  L.push(`# Figma 还原包：${page.name} · ${b.styleLock.directionName}`);
   L.push('');
   L.push(`目标：根据最终 AI 出图、PRD、运营文案和设计规范，先 1:1 还原成 HTML/CSS 前端页面，再用 html.to.design 或 Codex/Figma skill 导入 Figma，得到更可编辑的设计稿。`);
   L.push('');
@@ -773,16 +1003,24 @@ function buildFigmaRestoreBrief(r) {
   L.push(`- 页面类型：${page.name}`);
   L.push(`- 画面比例：${page.aspect}`);
   L.push(`- 生成模型：${r.model || modelRouting.default.model}`);
-  L.push(`- 视觉风格：${style.name} — ${style.pitch}`);
+  L.push(`- 活动级视觉方向：${b.styleLock.directionName}`);
+  L.push(`- 页面结构锁定：${page.structure}`);
   L.push(`- 参考图数量：${r.refCount || state.refs.length || 0}`);
   L.push('');
   L.push(`## 2. 业务文案（必须作为真实文本层还原）`);
   if (isCard) {
-    L.push(`- 小程序卡片主标题：${ops.miniCardTitle}`);
+    L.push(`- 小程序卡片活动标题：${sharedTitle}`);
     L.push(`- 小程序卡片 CTA：${ops.miniCardCTA}`);
+  } else if (isUpload) {
+    L.push(`- 上传页活动标题：${sharedTitle}`);
+    L.push(`- 上传页副文案：${ops.uploadSubtitle}`);
+    L.push(`- 第一步：上传孩子和硬件作品的合照`);
+    L.push(`- 第二步：分享合照，集齐星星领好礼`);
+    L.push(`- 兑换区标题：爆款好礼兑换区`);
+    L.push(`- 上传 CTA：${ops.uploadCTA}`);
+    L.push(`- 规则入口：${ops.ruleEntry}`);
   } else {
-    L.push(`- 海报主标题：${ops.posterTitleMain}`);
-    L.push(`- 海报副标题：${ops.posterTitleSub}`);
+    L.push(`- 海报活动标题：${sharedTitle}`);
     L.push(`- 海报 CTA：${ops.posterCTA}`);
     L.push(`- 海报底部行：${ops.posterFooter}`);
   }
@@ -790,6 +1028,8 @@ function buildFigmaRestoreBrief(r) {
   L.push(`- 集星目标：${ops.starGoal}`);
   L.push(`- 集星奖励：${ops.starReward}`);
   L.push(`- 活动时间：${ops.activityTime}`);
+  L.push(`- 奖品/学习礼：${ops.prizeList}`);
+  L.push(`- 奖励规则：${ops.rewardRule}`);
   L.push('');
   L.push(`## 3. PRD / 运营上下文`);
   if (state.prdRaw.trim()) {
@@ -812,6 +1052,7 @@ function buildFigmaRestoreBrief(r) {
   L.push(`- Soft background：${b.designSpec.bgSoft}`);
   L.push(`- CTA：${b.designSpec.ctaShape}`);
   L.push(`- 字体感觉：${b.designSpec.fontFeel}`);
+  L.push(`- Campaign Style Lock：${b.styleLock.directionName}；${b.styleLock.titleEffect}；${b.styleLock.button}`);
   if (b.designSpec._override) L.push(`- 本次覆盖：${b.designSpec._override}`);
   L.push(`- 禁忌：${b.designSpec.taboos.join('；')}`);
   L.push('');
@@ -873,7 +1114,7 @@ function refreshExportTargets() {
   sel.innerHTML = '';
   state.results.forEach((r, i) => {
     const ok = r.status === 'completed' && r.url;
-    const label = `${pages[r.pageId].name} × ${styles[r.styleId].name}` + (ok ? '' : '（未完成）');
+    const label = `${pages[r.pageId].name} · ${getStyleLockCompiled().directionName}` + (ok ? '' : '（未完成）');
     const opt = el('option', { value: String(i) }, label);
     if (!ok) opt.disabled = true;
     sel.append(opt);
@@ -894,7 +1135,7 @@ function setExportButtonsEnabled(enabled) {
 async function exportPng() {
   const r = getSelectedResult();
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
-  const name = `walnut-${pages[r.pageId].name}-${styles[r.styleId].name}-${Date.now()}.png`;
+  const name = `walnut-${pages[r.pageId].name}-${getStyleLockCompiled().directionName}-${Date.now()}.png`;
   // 走 server 代理避开跨域
   const proxied = `/api/export/png?url=${encodeURIComponent(r.url)}&name=${encodeURIComponent(name)}`;
   const a = el('a', { href: proxied, download: name });
@@ -969,14 +1210,16 @@ function buildHtmlSingleFile(r) {
   const style = styles[r.styleId];
   const ops = state.ops;
   const isCard = r.pageId === 'mini-card';
-  const title = isCard ? ops.miniCardTitle : `${ops.posterTitleMain} ${ops.posterTitleSub}`;
-  const cta = isCard ? ops.miniCardCTA : ops.posterCTA;
+  const isUpload = r.pageId === 'upload-page';
+  const sharedTitle = ops.activityName || '秀硬件作品赢超值好礼';
+  const title = sharedTitle;
+  const cta = isCard ? ops.miniCardCTA : (isUpload ? ops.uploadCTA : ops.posterCTA);
   const aspect = page.aspect.replace(':', ' / ');
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<title>${page.name} × ${style.name}</title>
+<title>${page.name} · ${getStyleLockCompiled().directionName}</title>
 <style>
   body { margin: 0; background: #f5f2ed; font-family: "PingFang SC", sans-serif; display: flex; justify-content: center; padding: 40px; }
   .canvas {
@@ -1012,7 +1255,7 @@ function buildHtmlSingleFile(r) {
   <div class="canvas">
     <div class="layer-title" contenteditable="true">${escapeHtml(title)}</div>
     <div class="layer-cta" contenteditable="true">${escapeHtml(cta)}</div>
-    ${!isCard ? '<div class="layer-qr">QR</div>' : ''}
+    ${!isCard && !isUpload ? '<div class="layer-qr">QR</div>' : ''}
   </div>
   <!--
     11 个 Figma 图层骨架（如要用 html.to.design 导入 Figma，可以把每层做成独立 div）：
@@ -1040,7 +1283,7 @@ function exportHtml() {
   const r = getSelectedResult();
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
   const html = buildHtmlSingleFile(r);
-  downloadFile(`walnut-${r.pageId}-${r.styleId}-${Date.now()}.html`, html, 'text/html');
+  downloadFile(`walnut-${r.pageId}-${getStyleLockCompiled().directionName}-${Date.now()}.html`, html, 'text/html');
   setStatus('HTML 已下载', 'ok');
 }
 
@@ -1048,7 +1291,7 @@ function exportFigma() {
   const r = getSelectedResult();
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
   const brief = buildFigmaRestoreBrief(r);
-  downloadFile(`walnut-${r.pageId}-${r.styleId}-figma-restore-${Date.now()}.md`, brief, 'text/markdown');
+  downloadFile(`walnut-${r.pageId}-${getStyleLockCompiled().directionName}-figma-restore-${Date.now()}.md`, brief, 'text/markdown');
   setStatus('Figma 还原包已下载：交给代码大模型生成 1:1 HTML，再导入 html.to.design', 'ok');
 }
 
@@ -1057,19 +1300,24 @@ function buildReactComponent(r) {
   const style = styles[r.styleId];
   const ops = state.ops;
   const isCard = r.pageId === 'mini-card';
-  const componentName = `Walnut${isCard ? 'Card' : 'Poster'}_${style.id.replace(/-/g, '_')}`;
-  const aspect = page.aspect.replace(':', ' / ');
-  return `// ${page.name} × ${style.name}
+  const isUpload = r.pageId === 'upload-page';
+  const componentKind = isCard ? 'Card' : (isUpload ? 'UploadPage' : 'Poster');
+  const componentName = `Walnut${componentKind}_${style.id.replace(/-/g, '_')}`;
+  const sharedTitle = ops.activityName || '秀硬件作品赢超值好礼';
+  const titleValue = sharedTitle;
+  const ctaValue = isCard ? ops.miniCardCTA : (isUpload ? ops.uploadCTA : ops.posterCTA);
+  const showQrDefault = !isCard && !isUpload;
+  return `// ${page.name} · ${getStyleLockCompiled().directionName}
 // 自动生成 by 转介绍活动物料 Agent
 import React from 'react';
 import './${componentName}.css';
 
 export default function ${componentName}({
   bgImageUrl = ${JSON.stringify(r.url)},
-  title = ${JSON.stringify(isCard ? ops.miniCardTitle : ops.posterTitleMain + ' ' + ops.posterTitleSub)},
-  cta = ${JSON.stringify(isCard ? ops.miniCardCTA : ops.posterCTA)},
+  title = ${JSON.stringify(titleValue)},
+  cta = ${JSON.stringify(ctaValue)},
   qrUrl,                 // 真二维码图，落地页 url 转 png
-  showQR = ${!isCard},
+  showQR = ${showQrDefault},
 }) {
   return (
     <div className="walnut-canvas walnut-${r.pageId}" style={{ backgroundImage: \`url(\${bgImageUrl})\` }}>
@@ -1139,7 +1387,8 @@ async function exportCode() {
   const r = getSelectedResult();
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
   // 一次给 jsx + css 两个文件，打包成一个文本下载（用户自己分文件保存）
-  const componentName = `Walnut${r.pageId === 'mini-card' ? 'Card' : 'Poster'}_${styles[r.styleId].id.replace(/-/g, '_')}`;
+  const componentKind = r.pageId === 'mini-card' ? 'Card' : (r.pageId === 'upload-page' ? 'UploadPage' : 'Poster');
+  const componentName = `Walnut${componentKind}_${styles[r.styleId].id.replace(/-/g, '_')}`;
   const jsx = buildReactComponent(r);
   const css = buildReactCss(r);
   const combined = `// ============= ${componentName}.jsx =============\n\n${jsx}\n\n/* ============= ${componentName}.css ============= */\n\n${css}\n`;
@@ -1202,6 +1451,7 @@ async function checkHealth() {
 function init() {
   renderActivityInfo();
   renderPageChecks();
+  renderPageConfigs();
   renderOpsFields();
   renderFontChips();
   renderPrdQuestions();
@@ -1218,8 +1468,15 @@ function init() {
   $('#generateBtn').onclick = generate;
   $('#loadDemoBtn').onclick = loadDemoResult;
   $('#resetBtn').onclick = () => {
-    state.pages = new Set(['mini-card', 'promo-poster']);
-    state.styles = new Set(['comic-show-off', 'prize-stack']);
+    state.pages = new Set(['mini-card', 'promo-poster', 'upload-page']);
+    state.styleLock = {
+      directionId: 'reward-lively',
+      explorationId: 'light',
+      density: '标准',
+      avoid: '不要太花；不要像淘宝广告；不要小字太多',
+      globalNotes: [],
+    };
+    syncStyleFromStyleLock();
     state.fontStyle = 'default-walnut';
     state.fontCustom = '';
     state.prdRaw = '';
@@ -1228,6 +1485,7 @@ function init() {
     state.special = '';
     state.designSpecText = '';
     state.results = [];
+    state.ops = structuredClone(defaultOps);
     $('#specialInst').value = '';
     $('#prdRaw').value = '';
     $('#designSpecText').value = '';

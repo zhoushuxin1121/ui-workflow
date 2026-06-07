@@ -33,7 +33,10 @@ export const pages = {
     aspect: '5:4',                // 微信分享小程序卡片接近 5:4
     size: '1280x1024',
     use: '分享给微信好友 / 朋友圈封面',
-    mainElement: '孩子合影 / 视频封面占位 + 标题 + CTA 胶囊',
+    structure: '活动标题 + 奖品主视觉 + 固定 CTA',
+    mainElement: '活动标题 + 奖品主视觉 + 立即领取 CTA',
+    locked: ['活动标题', '奖品必须出现', 'CTA 文案固定为「立即领取」'],
+    variable: ['标题字效', '按钮样式', '奖品摆放', '背景氛围', '装饰元素'],
   },
   'promo-poster': {
     id: 'promo-poster',
@@ -41,7 +44,21 @@ export const pages = {
     aspect: '9:16',
     size: '1024x1820',
     use: '朋友圈 / 班级群 / 课导私聊',
+    structure: '顶部主题奖品 + 中部活动步骤 + 底部扫码参与',
     mainElement: '品牌 logo + 大标题 + 奖品堆 + 参与步骤 + 二维码',
+    locked: ['上中下三段结构', '活动步骤', '二维码区域清晰', 'CTA 文案'],
+    variable: ['顶部主视觉', '扫码区样式', '背景风格', '装饰元素', '按钮样式'],
+  },
+  'upload-page': {
+    id: 'upload-page',
+    name: '上传页',
+    aspect: '9:16',
+    size: '1024x1820',
+    use: '活动落地页 / 家长上传任务页',
+    structure: '顶部主题奖品 + 用户信息 + 上传步骤 + 兑换区 + 上传 CTA',
+    mainElement: '用户信息区 + 上传合照任务 + 集星领奖 + 爆款好礼兑换区 + 上传 CTA',
+    locked: ['用户信息走系统数据', '上传步骤不可乱动', '兑换区必须保留', '底部上传 CTA'],
+    variable: ['顶部主题视觉', '兑换区氛围', 'CTA 样式', '奖品展示', '局部装饰'],
   },
 };
 
@@ -93,6 +110,97 @@ export const styles = {
 };
 
 // ——————————————————————————————————————————————
+// 活动级视觉方向（给运营看的业务语言）
+// 运营不直接配置设计语言；这里把业务语言映射到后台 Style Lock。
+// ——————————————————————————————————————————————
+
+export const visualDirections = {
+  'reward-lively': {
+    id: 'reward-lively',
+    name: '热闹领奖',
+    styleId: 'prize-stack',
+    operatorIntent: '奖励感强、奖品吸引人、CTA 明确',
+    background: '红橙黄活动舞台 / 奖品展台氛围',
+    titleEffect: '大标题描边字，强识别，强调「秀」「赢」「好礼」',
+    color: '核桃橙 #FF5A1F + 高亮黄 #FFD84A + 暖红',
+    button: '高对比圆角胶囊按钮，奖励感强，文字必须清晰',
+    prizeLayout: '奖品堆作为主视觉，主奖品居中，辅奖品两侧补充',
+    decoration: '金币、礼盒、星星 IP、闪光，但围绕主体聚合',
+    prompt: 'reward-driven lively campaign style; strong prize attraction; warm orange-yellow palette; 3D prize stack; bold readable CTA; festive but organized.',
+  },
+  'social-natural': {
+    id: 'social-natural',
+    name: '朋友圈自然',
+    styleId: 'seasonal-scene',
+    operatorIntent: '降低广告感，更像家长愿意转发的自然分享',
+    background: '浅色生活化 / 户外自然光 / 温暖空间感',
+    titleEffect: '保留大标题，但降低强促销描边和爆炸感',
+    color: '降低红橙饱和度，增加米白、浅黄、浅绿',
+    button: '按钮清晰可点击，但弱化电商促销质感',
+    prizeLayout: '奖品保留但不过度堆满，增加留白和呼吸感',
+    decoration: '中低密度贴纸、星星、柔光，不要爆炸贴',
+    prompt: 'social-share friendly visual; warm approachable parent-sharing mood; reduce hard-selling pressure; natural light; more breathing room.',
+  },
+  'kids-playful': {
+    id: 'kids-playful',
+    name: '低龄童趣',
+    styleId: 'hand-doodle',
+    operatorIntent: '更可爱、更适合低龄孩子家长',
+    background: '手绘纸张 / 涂鸦 / 明亮轻松的童趣氛围',
+    titleEffect: '圆润夸张的童趣字效，边缘柔和，可加贴纸感',
+    color: '核桃橙 + 奶油黄 + 少量蓝绿粉点缀',
+    button: '软糖感或贴纸感 CTA，仍然要有强点击感',
+    prizeLayout: '奖品可更卡通、更亲和，配合星星 IP 互动',
+    decoration: '手绘箭头、涂鸦星星、贴纸、礼盒，密度中等',
+    prompt: 'playful kid-friendly doodle style; rounded shapes; sticker decorations; warm candy palette; approachable and cute.',
+  },
+  'brand-clean': {
+    id: 'brand-clean',
+    name: '品牌专业',
+    styleId: 'tech-credible',
+    operatorIntent: '更可信、更像课程成果展示，减少促销感',
+    background: '结构化信息卡 + 编程/硬件成果线索 + 清爽空间',
+    titleEffect: '克制现代粗黑标题，减少花哨描边',
+    color: '核桃橙 + 深蓝/白色，冷暖对比',
+    button: '清晰稳重的品牌按钮，强调可用性和可信度',
+    prizeLayout: '奖品不消失，但弱化堆头，突出学习成果和硬件作品',
+    decoration: '低密度，少贴纸，多结构化模块和轻科技线条',
+    prompt: 'professional kids programming achievement campaign; credible tech-learning cues; clean layout; subtle code UI; trustworthy for parents.',
+  },
+  'festival': {
+    id: 'festival',
+    name: '节日氛围',
+    styleId: 'comic-show-off',
+    operatorIntent: '更有节点感和庆祝感，但不牺牲信息清晰',
+    background: '节日活动场景 / 彩带 / 礼盒 / 灯牌感',
+    titleEffect: '节日活动感标题，允许局部彩带、灯牌、贴纸装饰',
+    color: '核桃橙 + 高亮黄 + 节日红，按节点可加入辅助色',
+    button: '节日礼盒感 CTA，保留强点击感',
+    prizeLayout: '奖品像节日礼物陈列，保持主奖品优先级',
+    decoration: '彩带、礼盒、金币、星星 IP，控制装饰不要压文字',
+    prompt: 'festive campaign atmosphere; celebration accents; gift and ribbon decorations; strong readable reward CTA; keep information hierarchy clear.',
+  },
+};
+
+export const explorationLevels = {
+  light: {
+    id: 'light',
+    name: '轻微变化',
+    prompt: 'only change background atmosphere, local decorations, and minor color balance; keep title treatment and CTA close to the established style.',
+  },
+  medium: {
+    id: 'medium',
+    name: '明显变化',
+    prompt: 'change title treatment, button style, color tendency, prize arrangement, and background atmosphere, while keeping page structure and business content locked.',
+  },
+  bold: {
+    id: 'bold',
+    name: '大胆探索',
+    prompt: 'explore a distinct visual language and scene mood, but never change page information architecture, exact copy, QR/CTA requirements, or brand identity.',
+  },
+};
+
+// ——————————————————————————————————————————————
 // 关键问题清单（PRD 缺失时 Agent 用这个引导）
 // 这些问题以后会沉淀进后台
 // ——————————————————————————————————————————————
@@ -105,7 +213,6 @@ export const keyQuestions = [
   { id: 'first-look', q: '想让人第一眼看到什么？',                 placeholder: '例：奖品堆 / 孩子 / 编程界面 / 集星进度' },
   { id: 'channel',    q: '投放渠道是哪里？',                       placeholder: '例：朋友圈 + 班级群 + 课导私聊' },
   { id: 'taboo',      q: '有没有不能出现的元素？',                  placeholder: '例：不要"奖学金"字样、不要友商品牌' },
-  { id: 'reference',  q: '参考过哪一期 / 哪个友商的物料？',          placeholder: '例：参考 image_2026_03 那一期' },
 ];
 
 // ——————————————————————————————————————————————
@@ -114,17 +221,20 @@ export const keyQuestions = [
 // ——————————————————————————————————————————————
 
 export const optimizationOptions = [
-  { id: 'prize-bigger',   label: '奖品堆头更大',     addon: 'increase prize stack visual weight to 60% of canvas, push prizes to foreground' },
-  { id: 'child-bigger',   label: '孩子更突出',       addon: 'enlarge child portrait, soft warm rim light, hero placement' },
-  { id: 'qr-clearer',     label: '二维码更醒目',     addon: 'enlarge QR placeholder area, add yellow halo and "扫码立即参与" emphasis around it' },
-  { id: 'star-clearer',   label: '集星规则更清楚',   addon: 'add a clear 16-star progress bar with prominent labeling' },
-  { id: 'brand-stronger', label: '更像核桃品牌',     addon: 'use Walnut Coding brand orange #FF5A1F as dominant color, walnut mascot accent' },
-  { id: 'less-promo',     label: '降低促销感',       addon: 'reduce marketing pressure, calmer composition, more breathing space, less burst rays' },
-  { id: 'more-social',    label: '更适合朋友圈',     addon: 'social-friendly composition, group-share feel, friend avatars implied' },
-  { id: 'more-tech',      label: '更有课程专业感',   addon: 'add subtle programming UI screen, schematic lines, AI lab vibe' },
-  { id: 'low-age',        label: '更适合低龄',       addon: 'rounder shapes, candy palette, kawaii stickers, lower visual density' },
-  { id: 'text-zone',      label: '文字区域更清楚',   addon: 'reserve cleaner text zones with stronger contrast, less decoration on text areas' },
-  { id: 'more-festive',   label: '更有节日感',       addon: 'add festive accents (red ribbons, lanterns, gold), without losing brand orange' },
+  { id: 'prize-bigger',   label: '奖品更突出',       scope: 'local', addon: 'increase prize visual weight on this page only, push prizes to foreground, keep campaign style lock unchanged' },
+  { id: 'title-bigger',   label: '标题更突出',       scope: 'local', addon: 'increase title hierarchy on this page only, keep exact title copy and campaign typography fingerprint' },
+  { id: 'cta-stronger',   label: '按钮更明显',       scope: 'local', addon: 'make the CTA area more visible and clickable on this page only, keep exact CTA copy' },
+  { id: 'qr-clearer',     label: '二维码更清晰',     scope: 'local', addon: 'make QR placeholder area clearer with more safe margin and contrast; do not create an actual scannable QR code' },
+  { id: 'step-clearer',   label: '步骤更清楚',       scope: 'local', addon: 'make activity steps easier to read on this page only, reserve cleaner text zones and hierarchy' },
+  { id: 'less-deco',      label: '减少装饰',         scope: 'local', addon: 'reduce decoration density on this page only; keep the same campaign color and title style' },
+  { id: 'exchange-bigger',label: '兑换区更突出',     scope: 'local', addon: 'make the exchange area and prize redemption section more prominent on this page only' },
+  { id: 'sample-clearer', label: '参考图更清楚',     scope: 'local', addon: 'make upload sample photo area clearer and more instructional on this page only' },
+];
+
+export const globalUpdateOptions = [
+  { id: 'global-social', label: '整套更像朋友圈', directionId: 'social-natural', addon: 'update the campaign style lock toward social-share friendly, lower ad pressure, warmer natural sharing feeling' },
+  { id: 'global-reward', label: '整套更热闹领奖', directionId: 'reward-lively', addon: 'update the campaign style lock toward stronger reward excitement and more prominent prize-driven CTA' },
+  { id: 'global-clean', label: '整套更清爽专业', directionId: 'brand-clean', addon: 'update the campaign style lock toward cleaner professional brand credibility and reduced decoration density' },
 ];
 
 // ——————————————————————————————————————————————
@@ -148,13 +258,21 @@ export const defaultDesignSpec = {
 // ——————————————————————————————————————————————
 
 export const defaultOps = {
-  activityName:    '秀硬件作品 赢超值好礼',
-  miniCardTitle:   '我的编程硬件作品',
-  miniCardCTA:     '给宝贝送星星',
-  posterTitleMain: '秀出你的硬件作品',
-  posterTitleSub:  '赢取超值学习礼',
+  activityName:    '秀硬件作品赢超值好礼',
+  prizeList:       '黄鹤楼拼接积木；中国航天立体翻翻书；传统节日卡通拼图；计划打卡器；奖学金',
+  rewardRule:      '分享合照收集星星，集满 16 颗星星即可获得 3000 核桃币，兑换超值学习礼',
+  uploadTask:      '横屏拍摄孩子手拿硬件作品和编程界面的合照，让孩子更有荣誉感',
+  uploadExample:   '孩子手拿硬件作品 + 编程界面合照',
+  requiredAssets:  '核桃 logo、星星 IP、金币、礼盒、奖品图、二维码占位',
+  miniCardTitle:   '秀硬件作品领超值好礼',
+  miniCardCTA:     '立即领取',
+  miniCardTarget:  '上传页',
   posterCTA:       '扫码立即参与',
   posterFooter:    '更多好礼等你领',
+  posterQr:         '活动二维码占位',
+  uploadSubtitle:   '上传硬件作品合照，晒出荣誉时刻，赢取超值好礼',
+  uploadCTA:        '点我去上传',
+  ruleEntry:        '规则',
   uploadReward:    '200 核桃币',
   starGoal:        '16 颗星星',
   starReward:      '3000 核桃币',

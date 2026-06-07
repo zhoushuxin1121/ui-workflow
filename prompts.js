@@ -76,6 +76,7 @@ function refImageNote(refs) {
 // 把整个 prompt 末尾的运营上下文 + 字体约束拼起来
 function tail(ctx, cnTitles) {
   return [
+    campaignStyleLockBlock(ctx),
     taboos(ctx.spec),
     joinIfPresent('Design spec override', ctx.spec?._override),
     joinIfPresent('Operator special instructions', ctx.special),
@@ -92,7 +93,7 @@ function consistencyBlock() {
   return [
     '',
     '[Campaign series consistency]',
-    'This is ONE page in a multi-page campaign series. Sibling pages (mini-card AND promo-poster, possibly across multiple styles) MUST share:',
+    'This is ONE page in a multi-page campaign series. Sibling pages (mini-card, promo-poster, upload-page) MUST share:',
     '- Same brand color logic (orange #FF5A1F + yellow #FFD84A as anchors)',
     '- Same hero typography style for the campaign main title',
     '- Same decoration vocabulary (stars / sparkles / sticker style / drop-shadow rule)',
@@ -102,9 +103,35 @@ function consistencyBlock() {
   ].join('\n');
 }
 
+function campaignStyleLockBlock(ctx) {
+  const lock = ctx.styleLock;
+  if (!lock) return '';
+  return [
+    '',
+    '[Campaign Style Lock — highest priority after exact business copy]',
+    `- Operator visual direction: ${lock.directionName || '默认热闹领奖'}`,
+    `- Exploration level: ${lock.explorationName || '轻微变化'}`,
+    `- Visual density: ${lock.density || '标准'}`,
+    `- Operator intent: ${lock.operatorIntent || ''}`,
+    `- Background atmosphere: ${lock.background || ''}`,
+    `- Title treatment: ${lock.titleEffect || ''}`,
+    `- Color tendency: ${lock.color || ''}`,
+    `- Button style: ${lock.button || ''}`,
+    `- Prize layout: ${lock.prizeLayout || ''}`,
+    `- Decoration rule: ${lock.decoration || ''}`,
+    `- Exploration rule: ${lock.explorationPrompt || ''}`,
+    lock.avoid ? `- Operator negative constraints: ${lock.avoid}` : '',
+    'All generated pages must obey this same Campaign Style Lock. Page-specific changes are Local Delta only and must not break the shared campaign visual fingerprint.',
+    'Hard locks: exact Chinese copy, page information architecture, brand identity, CTA readability, QR placeholder clarity, and page size must not be changed by style exploration.',
+  ].filter(Boolean).join('\n');
+}
+
 // 把奖励/集星信息真传进去（之前只在标题里露脸，正文没用上）
 function rewardBlock(ops = {}) {
   const lines = [];
+  if (ops.prizeList) lines.push(`- Prize / learning gift list: ${ops.prizeList}`);
+  if (ops.rewardRule) lines.push(`- Reward rule: ${ops.rewardRule}`);
+  if (ops.uploadTask) lines.push(`- Upload task: ${ops.uploadTask}`);
   if (ops.uploadReward) lines.push(`- Upload reward: ${ops.uploadReward}`);
   if (ops.starGoal && ops.starReward) lines.push(`- Star goal: collect ${ops.starGoal} → reward ${ops.starReward}`);
   if (ops.activityTime) lines.push(`- Activity window: ${ops.activityTime}`);
@@ -112,8 +139,11 @@ function rewardBlock(ops = {}) {
   return '\n[Reward / mechanics — surface these where space allows]\n' + lines.join('\n');
 }
 
-const miniTitles  = (ctx) => [ctx.ops.miniCardTitle, ctx.ops.miniCardCTA];
-const posterTitles = (ctx) => [ctx.ops.posterTitleMain, ctx.ops.posterTitleSub, ctx.ops.posterCTA, ctx.ops.posterFooter];
+const campaignTitle = (ctx) => ctx.ops.activityName || '秀硬件作品赢超值好礼';
+const miniTitle = (ctx) => ctx.ops.miniCardTitle || campaignTitle(ctx);
+const miniTitles  = (ctx) => [miniTitle(ctx), ctx.ops.miniCardCTA];
+const posterTitles = (ctx) => [campaignTitle(ctx), ctx.ops.posterCTA, ctx.ops.posterFooter];
+const uploadTitles = (ctx) => [campaignTitle(ctx), ctx.ops.uploadSubtitle, ctx.ops.uploadCTA];
 
 // ----------------------------- 模板表 -----------------------------
 
@@ -128,7 +158,7 @@ ${brandHeader(ctx.spec, ctx.ops)}
 Composition:
 - Center: a chunky orange-yellow vintage camera-shaped frame (~55% of canvas) holding a clean rounded-rectangle photo placeholder area where a real child photo will go (leave it as a clean dark or light fill, no AI-drawn child).
 - Frame has bold black outline and dimensional lift (drop shadow).
-- Top: render Chinese title「${ctx.ops.miniCardTitle}」in bold comic-style typography, black fill with white outer stroke, flanked by red comic brackets.
+- Top: render Chinese title「${miniTitle(ctx)}」in bold comic-style typography, black fill with white outer stroke, flanked by red comic brackets.
 - Bottom: a bright yellow rounded pill button rendering Chinese text "${ctx.ops.miniCardCTA}" in bold black, with a small finger-tap cartoon sticker on its right end.
 Background: vivid red-orange (${ctx.spec.primary}) with halftone dots and burst sun rays.
 Decorations: purple/yellow stars, a "棒!" cartoon emoji sticker on the right, a peace-hand emoji sticker on the left, sparkles. All stickers have white outer stroke and drop shadow.
@@ -140,7 +170,7 @@ ${tail(ctx, miniTitles(ctx))}
 A 5:4 social share card emphasizing prize rewards for a kids' programming campaign.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition:
-- Left side (~50%): Chinese title「${ctx.ops.miniCardTitle}」in chunky black comic typography with white stroke, red brackets.
+- Left side (~50%): Chinese title「${miniTitle(ctx)}」in chunky black comic typography with white stroke, red brackets.
 - Right side: a tight stack of physical prizes — a Chinese pagoda LEGO-like build (Yellow Crane Tower 黄鹤楼) as the hero, with a "中国航天" 3D pop-up book and a Walnut Coin pile beside it. Soft drop shadows.
 - Bottom band: a bright yellow rounded pill rendering "${ctx.ops.miniCardCTA}" in black bold, with a finger-tap sticker.
 Background: ${ctx.spec.primary} with sun rays and halftone dots.
@@ -154,7 +184,7 @@ A 5:4 social share card with hand-drawn doodle aesthetic for a kids' programming
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition:
 - Center: a hand-drawn rounded rectangle frame (cream fill ${ctx.spec.bgSoft}, hand-sketched border in ink) holding a child photo placeholder area.
-- Top: Chinese title「${ctx.ops.miniCardTitle}」in playful hand-lettered style, with handwritten English "My Creation" in cursive on the side.
+- Top: Chinese title「${miniTitle(ctx)}」in playful hand-lettered style, with handwritten English "My Creation" in cursive on the side.
 - Bottom: yellow pill button rendering "${ctx.ops.miniCardCTA}" with hand-drawn arrows pointing to it.
 Background: cream ${ctx.spec.bgSoft} with scattered orange and yellow doodle stars, sparkles, hand-drawn squiggles, and a small cartoon star mascot character standing nearby.
 Style: ${styles['hand-doodle'].mood}.
@@ -166,7 +196,7 @@ A 5:4 social share card with a fresh outdoor seasonal vibe for a kids' programmi
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition:
 - Center: a soft rounded photo placeholder area framed with playful orange-yellow camera border, set against a blurred green grass / meadow background with depth-of-field bokeh.
-- Top: Chinese title「${ctx.ops.miniCardTitle}」mixing red and dark-green strokes, comic brackets.
+- Top: Chinese title「${miniTitle(ctx)}」mixing red and dark-green strokes, comic brackets.
 - Bottom: yellow pill rendering "${ctx.ops.miniCardCTA}" in bold black.
 Decorations: floating yellow stars, dandelion sparkles, small flowers along the bottom edge, a star mascot peeking from grass.
 Style: ${styles['seasonal-scene'].mood}.
@@ -179,7 +209,7 @@ ${brandHeader(ctx.spec, ctx.ops)}
 Composition:
 - Left ~55%: a clean rounded rectangle area for child photo placeholder (kid + laptop + small hardware project), framed with a thin orange tech border with subtle circuit-line decorations.
 - Right ~45%: a stylized programming UI screen mockup in dark navy ${ctx.spec.ink || '#1B2845'} with orange syntax highlights, plus a small hardware module silhouette.
-- Top: Chinese title「${ctx.ops.miniCardTitle}」in clean bold sans-serif with orange accent on key words.
+- Top: Chinese title「${miniTitle(ctx)}」in clean bold sans-serif with orange accent on key words.
 - Bottom: a yellow rounded pill with "${ctx.ops.miniCardCTA}" in bold black.
 Background: cool-warm split — navy gradient on the right, brand orange wash on the left.
 Decorations: minimal — small connector dots, schematic lines, a single star.
@@ -195,7 +225,7 @@ T['promo-poster'] = {
 A 9:16 vertical promotional poster for a kids' programming hardware campaign, in comic doodle style.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition (top to bottom):
-1. Top band: Walnut Coding round logo placeholder in a white rounded rectangle (top-left). Chinese main title「${ctx.ops.posterTitleMain}」+「${ctx.ops.posterTitleSub}」in chunky black comic typography with white stroke, red comic brackets around the keyword "秀" or "学习礼".
+1. Top band: Walnut Coding round logo placeholder in a white rounded rectangle (top-left). Chinese title「${campaignTitle(ctx)}」in chunky black comic typography with white stroke, red comic brackets around the keyword "秀" or "学习礼".
 2. Middle: a single hero child photo placeholder rounded rectangle (kid holding hardware + laptop), framed by an orange-yellow vintage camera shape.
 3. Lower middle: a step panel "活动参与步骤" with two steps:
    - 01 秀硬件作品: brief Chinese description with a small inline photo thumb.
@@ -211,7 +241,7 @@ ${tail(ctx, posterTitles(ctx))}
 A 9:16 vertical promotional poster, prize-heavy marketing style.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition (top to bottom):
-1. Top band: Walnut Coding round logo (top-left, white rounded rect). Chinese title「${ctx.ops.posterTitleMain}」+「${ctx.ops.posterTitleSub}」in bold black comic font with red brackets around "秀"; the words "学习礼" highlighted with a yellow underline scribble.
+1. Top band: Walnut Coding round logo (top-left, white rounded rect). Chinese title「${campaignTitle(ctx)}」in bold black comic font with red brackets around "秀"; the words "学习礼" highlighted with a yellow underline scribble.
 2. Hero (~40%): a tight stack of physical prizes — Yellow Crane Tower (黄鹤楼) brick-built pagoda as the absolute centerpiece, flanked by 中国航天 3D pop-up book on left and a 传统节日 cartoon puzzle box on right; Walnut Coins arranged at base; a red ribbon banner labeled "奖学金" overlaid; small "30元 奖学金" red coin badges.
 3. Step panel: cream ${ctx.spec.bgSoft} rounded card titled "活动参与步骤" with two steps (01 秀硬件作品, 02 集星星领好礼), each step has small inline thumb image.
 4. Footer band: large Chinese "${ctx.ops.posterCTA}" with QR placeholder square on right, sub-line "${ctx.ops.posterFooter}".
@@ -225,7 +255,7 @@ ${tail(ctx, posterTitles(ctx))}
 A 9:16 vertical poster with hand-drawn doodle aesthetic.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition (top to bottom):
-1. Top: Walnut Coding round logo (top-left). Chinese title「${ctx.ops.posterTitleMain}」+「${ctx.ops.posterTitleSub}」in playful hand-lettered Chinese, with handwritten English "My Creation" in cursive nearby.
+1. Top: Walnut Coding round logo (top-left). Chinese title「${campaignTitle(ctx)}」in playful hand-lettered Chinese, with handwritten English "My Creation" in cursive nearby.
 2. Hero: prize stack (黄鹤楼 hero + 中国航天 book + traditional festival puzzle + 计划打卡器 on the side), each prize labeled with hand-written Chinese tags ("黄鹤楼拼接积木", "中国航天立体翻翻书"), a cartoon star mascot character on a skateboard waving a gift box.
 3. Step panel: cream ${ctx.spec.bgSoft} card with hand-sketched border, titled "活动参与步骤", two steps with hand-drawn arrows pointing between them.
 4. Footer: large Chinese "${ctx.ops.posterCTA}" with hand-drawn arrow pointing to a square QR placeholder, sub-line "${ctx.ops.posterFooter}", small star mascot waving.
@@ -238,7 +268,7 @@ ${tail(ctx, posterTitles(ctx))}
 A 9:16 vertical poster with a fresh outdoor spring scene.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition (top to bottom):
-1. Top: Walnut Coding round logo (top-left). Chinese title「${ctx.ops.posterTitleMain}」+「${ctx.ops.posterTitleSub}」mixing red strokes for "秀" and dark-green strokes for "学习礼", with handwritten English "My Creation" in cursive.
+1. Top: Walnut Coding round logo (top-left). Chinese title「${campaignTitle(ctx)}」mixing red strokes for "秀" and dark-green strokes for "学习礼", with handwritten English "My Creation" in cursive.
 2. Hero: prize stack (黄鹤楼 hero + 中国航天 + traditional puzzle + 计划打卡器) sitting on a soft yellow stage, surrounded by floating soap bubbles and a glowing star mascot.
 3. Mid: child photo placeholder (kid + laptop + hardware), small orange rounded card.
 4. Step panel: cream ${ctx.spec.bgSoft} card titled "活动参与步骤", two steps, each with thumb image.
@@ -252,7 +282,7 @@ ${tail(ctx, posterTitles(ctx))}
 A 9:16 vertical poster emphasizing programming professionalism for new-user parents.
 ${brandHeader(ctx.spec, ctx.ops)}
 Composition (top to bottom):
-1. Top: Walnut Coding round logo (top-left). Chinese title「${ctx.ops.posterTitleMain}」+「${ctx.ops.posterTitleSub}」in clean modern bold Chinese type with orange highlight on keywords; subtle schematic line decoration.
+1. Top: Walnut Coding round logo (top-left). Chinese title「${campaignTitle(ctx)}」in clean modern bold Chinese type with orange highlight on keywords; subtle schematic line decoration.
 2. Hero: split panel — left: child photo placeholder (kid concentrating on laptop with hardware module); right: stylized programming UI screen with orange syntax highlights on dark navy ${ctx.spec.ink}.
 3. Trust strip: a thin row showing "课程节点 / 真实硬件 / 学习成果" in three iconified blocks.
 4. Step panel: cream card "活动参与步骤", two steps.
@@ -262,6 +292,38 @@ Style: ${styles['tech-credible'].mood}.
 ${tail(ctx, posterTitles(ctx))}
 `.trim(),
 };
+
+// =========== 上传页 ===========
+
+function uploadTemplate(ctx, styleId) {
+  const style = styles[styleId] || styles['prize-stack'];
+  return `
+A 9:16 vertical upload landing page for a Walnut Coding referral campaign.
+${brandHeader(ctx.spec, ctx.ops)}
+Page role: this is the task execution page. Parents land here after clicking the mini-program card or scanning the poster QR. It must clearly guide them to upload a photo and understand the reward flow.
+
+LOCKED page structure (top to bottom):
+1. Top hero: Walnut Coding logo / rule entry, campaign title「${campaignTitle(ctx)}」, prize visual using the same campaign prize set.
+2. User info area: avatar placeholder + username placeholder + dynamic achievement text such as "学习编程的第 2200 天，已创作 3655 个作品". Treat this as system data placeholder, not operator-entered copy.
+3. Step 01: render Chinese step title「上传孩子和硬件作品的合照」. Explain: ${ctx.ops.uploadTask || '横屏拍摄孩子手拿硬件作品和编程界面的合照'}.
+4. Step 02: render Chinese step title「分享合照，集齐星星领好礼」. Explain the reward rule: ${ctx.ops.rewardRule || '分享合照收集星星，集满星星兑换好礼'}.
+5. Prize exchange area: render title「爆款好礼兑换区」 with the prize list: ${ctx.ops.prizeList || activityTemplate.reward.physicalPrizes.join('、')}.
+6. Bottom CTA: a large fixed button rendering exact Chinese text「${ctx.ops.uploadCTA || '点我去上传'}」.
+
+Functional constraints:
+- Keep the user information block readable and visually separate from the decorative hero area.
+- Upload sample photo area must look like a real instruction area, with camera/plus placeholder if needed.
+- The bottom CTA must be clearly tappable and not confused with decoration.
+- Do not invent real user names, real QR codes, or real private data.
+
+Visual style: ${style.mood}. Apply the Campaign Style Lock, but keep this page more functional and readable than a pure poster.
+${tail(ctx, uploadTitles(ctx))}
+`.trim();
+}
+
+T['upload-page'] = Object.fromEntries(
+  Object.keys(styles).map(styleId => [styleId, (ctx) => uploadTemplate(ctx, styleId)])
+);
 
 // ----------------------------- 公共导出 -----------------------------
 
@@ -305,10 +367,19 @@ export function buildOptimizedPrompt(originalPrompt, addons, freeText) {
   const lines = [originalPrompt, '', '--- Optimization addendum ---'];
   for (const a of addons || []) lines.push(`- ${a}`);
   if (freeText?.trim()) lines.push(`- Operator note: ${freeText.trim()}`);
+  lines.push('- Keep the same Campaign Style Lock unless the operator explicitly chose a Global Update.');
   return lines.join('\n');
 }
 
 export function suggestOptimizations(pageId, styleId, allOptions) {
+  const byPage = {
+    'mini-card': ['prize-bigger', 'title-bigger', 'cta-stronger'],
+    'promo-poster': ['qr-clearer', 'step-clearer', 'less-deco'],
+    'upload-page': ['cta-stronger', 'exchange-bigger', 'sample-clearer'],
+  };
+  if (byPage[pageId]) {
+    return byPage[pageId].map(id => allOptions.find(o => o.id === id)).filter(Boolean);
+  }
   const map = {
     'comic-show-off':  ['child-bigger', 'text-zone', 'low-age'],
     'prize-stack':     ['prize-bigger', 'qr-clearer', 'less-promo'],
