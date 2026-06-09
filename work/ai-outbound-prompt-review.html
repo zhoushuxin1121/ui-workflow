@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 外呼 Prompt 复核</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #64748b;
+      --line: #d8e0ea;
+      --blue: #1d4ed8;
+      --blue-soft: #dbeafe;
+      --green: #15803d;
+      --green-soft: #dcfce7;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --gray-soft: #f1f5f9;
+      --shadow: 0 10px 24px rgba(15, 23, 42, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    .page { max-width: 1680px; margin: 0 auto; padding: 22px 24px 32px; }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+    h1 { font-size: 26px; line-height: 1.25; margin: 0 0 6px; letter-spacing: 0; }
+    .subtitle { color: var(--muted); margin: 0; }
+    .source { color: var(--muted); font-size: 12px; text-align: right; }
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+    }
+    .section-head h2 { margin: 0; font-size: 17px; }
+    .legend { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.yes { background: var(--green-soft); color: var(--green); }
+    .tag.partial { background: var(--amber-soft); color: var(--amber); }
+    .tag.missing { background: var(--gray-soft); color: #475569; }
+    .tag.risk { background: var(--red-soft); color: var(--red); }
+    .tag.system { background: var(--blue-soft); color: var(--blue); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e7edf5; padding: 10px 12px; vertical-align: top; text-align: left; }
+    th { color: #334155; background: #f8fafc; font-size: 12px; }
+    td:first-child { font-weight: 700; color: #183b75; width: 150px; }
+    td:nth-child(2) { font-weight: 700; width: 190px; }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(360px, 430px) minmax(520px, 1fr);
+      min-height: 720px;
+    }
+    .left-panel {
+      border-right: 1px solid var(--line);
+      background: #fbfdff;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 6px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .tab.active {
+      color: var(--blue);
+      border-color: #93b7f7;
+      background: var(--blue-soft);
+    }
+    .item-list {
+      overflow: auto;
+      padding: 12px;
+      flex: 1;
+      max-height: 790px;
+    }
+    .review-item {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 12px 14px;
+      margin: 0 0 10px 28px;
+      width: calc(100% - 28px);
+      text-align: left;
+      cursor: pointer;
+      border-left: 6px solid transparent;
+    }
+    .review-item:hover { border-color: #93b7f7; }
+    .review-item.active {
+      border-color: #8bb7ff;
+      border-left-color: #8bb7ff;
+      background: #ffffff;
+      box-shadow: 0 0 0 1px rgba(29, 78, 216, .18);
+    }
+    .group {
+      margin-bottom: 16px;
+    }
+    .group-head {
+      width: 100%;
+      display: block;
+      text-align: left;
+      border: 1px solid #cbd5e1;
+      border-left: 8px solid #64748b;
+      border-radius: 11px;
+      background: #f8fafc;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .group-head:hover { border-color: #93b7f7; }
+    .group.active .group-head {
+      border-color: #cbd5e1;
+      border-left-color: #64748b;
+      background: #f8fafc;
+      box-shadow: 0 0 0 1px rgba(100, 116, 139, .18);
+    }
+    .group-head-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .group-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #64748b;
+      color: white;
+      font-size: 12px;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .group.active .group-index { background: #64748b; }
+    .group-title {
+      font-size: 14px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+    .group.active .group-title { color: #0f2f6e; }
+    .group-desc {
+      color: var(--muted);
+      font-size: 12px;
+      padding-left: 30px;
+    }
+    .subitem-label {
+      display: inline-flex;
+      align-items: center;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .review-item.active .subitem-label { color: var(--blue); }
+    .review-item.active .item-name { color: #0f172a; }
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .item-name { font-weight: 800; color: #0f172a; }
+    .item-module { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+    .item-purpose { color: #334155; font-size: 13px; }
+    .selected-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+    }
+    .detail {
+      border-top: 1px solid var(--line);
+      padding: 12px;
+      background: #fff;
+    }
+    .detail h3 { margin: 0 0 8px; font-size: 16px; }
+    .detail-grid { display: grid; gap: 8px; }
+    .detail-block {
+      border-left: 3px solid #bfdbfe;
+      background: #f8fbff;
+      padding: 8px 10px;
+      border-radius: 0 6px 6px 0;
+    }
+    .detail-label { color: var(--muted); font-size: 12px; font-weight: 800; margin-bottom: 2px; }
+    .prompt-panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+    }
+    .prompt-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    .prompt-title { font-weight: 800; }
+    .prompt-note { color: var(--muted); font-size: 12px; }
+    .prompt-lines {
+      overflow: auto;
+      max-height: 850px;
+      background: #0b1020;
+      color: #dbe7ff;
+      font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      padding: 10px 0;
+    }
+    .line {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 12px;
+      padding: 1px 16px 1px 0;
+      border-left: 4px solid transparent;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .ln {
+      color: #8091b8;
+      text-align: right;
+      user-select: none;
+    }
+    .line.match {
+      background: rgba(250, 204, 21, .15);
+      border-left-color: #facc15;
+      color: #fff7d6;
+    }
+    .empty-hint {
+      padding: 32px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .check-list { display: grid; gap: 8px; }
+    .check-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .check-card:hover { border-color: #93b7f7; }
+    .check-title { font-weight: 800; margin-bottom: 4px; }
+    .check-module { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    @media (max-width: 1120px) {
+      .workspace { grid-template-columns: 1fr; }
+      .left-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      .source { text-align: left; }
+      .hero { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>AI 外呼 Prompt 复核</h1>
+        <p class="subtitle">按我们的标准检查项，对照供应商 prompt 是否覆盖。</p>
+      </div>
+      <div class="source">供应商 prompt 已嵌入本页；明文密钥已脱敏显示。</div>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Prompt 待复核项</h2>
+      </div>
+      <div class="workspace">
+        <aside class="left-panel">
+          <div class="item-list" id="itemList"></div>
+          <div class="detail" id="detail"></div>
+        </aside>
+        <section class="prompt-panel">
+          <div class="prompt-toolbar">
+            <div>
+              <div class="prompt-title" id="promptTitle">供应商 Prompt 原文</div>
+              <div class="prompt-note" id="promptNote">点击左侧待复核项后，高亮对应证据片段。</div>
+            </div>
+            <button class="tab" id="clearBtn" type="button">清除高亮</button>
+          </div>
+          <div class="prompt-lines" id="promptLines"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const promptReviewGroups = [{"strategy":"预设路径","description":"检查主干道：目标、关键动作、阶段推进和收口。","items":[{"id":"preset-goal","name":"业务目标与核心动作","purpose":"确认 prompt 是否明确本次外呼要完成什么。","evidence":[[4,4],[16,22]],"review":"是否明确本次外呼目标、必须收集的信息、必须推动用户完成的核心动作。","focus":"重点看 P0 加微目标、后置信息收集和多次拒绝后的结束边界。"},{"id":"preset-milestone","name":"阶段里程碑与单向推进","purpose":"确认 AI 是否有清晰阶段顺序，避免流程跳跃或倒退。","evidence":[[7,14]],"review":"阶段是否严格依序推进；利益点、加微询问和工具调用是否避免重复。","focus":"重点看里程碑、流程不可逆、利益点单次透传、加微询问单次透传、工具单次调用。"},{"id":"preset-main-actions","name":"加微主路径动作","purpose":"确认主路径是否覆盖发起加微、指导通过、完成后收集信息。","evidence":[[25,26],[45,47],[70,80],[117,128]],"review":"开场、发起加微、指导操作、信息收集和结束语是否构成完整主路径。","focus":"重点看主线是否围绕加微推进，信息收集是否放在完成加微后。"}]},{"strategy":"分支逻辑","description":"检查我们定义的标准分支是否被供应商 prompt 覆盖。","items":[{"id":"branch-opening","name":"开场确认分支","purpose":"检查开场阶段的用户反馈是否都有处理路径。","evidence":[[27,27],[29,38],[191,197]],"review":"模糊回复、没买过/没印象、肯定回复、已加过、在忙、身份/来源质疑是否有对应处理。","focus":"重点看触发条件是否清楚，处理后是否回到加微主线或合理结束。"},{"id":"branch-wechat-intent","name":"加微意向分支","purpose":"检查用户同意、拒绝、担心骚扰或不想加微时的处理。","evidence":[[33,38],[40,43],[186,187],[198,206]],"review":"同意加微、拒绝加微、稍后再加、担心推销、为什么加微、不想加微信等是否有处理路径。","focus":"重点看挽留次数、挽留话术合规性、处理后能否回到加微或明确结束。"},{"id":"branch-phone","name":"号码与加微方式分支","purpose":"检查默认号码、换手机号、只给微信号、号码不可加等分支。","evidence":[[48,68]],"review":"当前号码不可加、换手机号、微信号不能加、默认号码可加、网络问题等是否写清楚。","focus":"重点看 11 位校验、分段收集、复述确认、微信号禁止调用、工具触发条件。"},{"id":"branch-operation","name":"加微操作过程分支","purpose":"检查用户在通过企微过程中的不同反馈。","evidence":[[82,82],[84,98],[111,115]],"review":"已加好、知道怎么加、不会操作、在忙、开车、电脑微信、没收到通知、搜索不到、质疑官方是否都有路径。","focus":"重点看是否按用户反馈进入不同操作路径，而不是重复主话术。"},{"id":"branch-course-objection","name":"课程与业务异议分支","purpose":"检查课程相关疑问和异议是否有标准话术单元。","evidence":[[130,183],[199,204]],"review":"孩子觉得难、没时间、不知道在哪上、价格贵、质疑效果、问家人、课程类型不懂、竞品对比、承诺落空是否有处理。","focus":"重点看话术是否合规、是否过度承诺、处理后是否能回到加微主线。"},{"id":"branch-risk-close","name":"投诉与骚扰风险分支","purpose":"检查用户表达投诉、骚扰、别再打时是否能止损。","evidence":[[190,190],[206,206]],"review":"投诉、辱骂、烦不烦、打太多电话、别再联系等风险表达是否有明确结束或停呼口径。","focus":"重点看是否及时止损，不继续强推。"}]},{"strategy":"中断与兜底","description":"检查对话失控时如何拉回、重问、止损或结束。","items":[{"id":"fallback-interrupt","name":"跳出后拉回","purpose":"检查用户中途打岔、提问、拒绝时是否能处理后回到操作流程。","evidence":[[11,11],[73,74]],"review":"操作中途提问或拒绝否定时，AI 是否先处理问题，再继续加微指导。","focus":"重点看是否禁止重复询问是否愿意加微，是否能拉回主任务。"},{"id":"fallback-silence","name":"沉默兜底","purpose":"检查不同阶段用户沉默时的处理层级。","evidence":[[28,28],[83,83],[101,101],[215,215]],"review":"开场、操作指导、搜索加微、全局沉默时是否有次数上限和结束口径。","focus":"重点看第一次、第二次、第三次沉默分别怎么处理。"},{"id":"fallback-not-understand","name":"听不懂兜底","purpose":"检查系统不理解用户表达时如何重问和收口。","evidence":[[213,214]],"review":"不理解用户说什么时，是否避免复读用户原话，是否有三次后的处理路径。","focus":"重点看兜底重问方式，以及三次听不懂后的动作是否合理。"},{"id":"fallback-ai-assistant","name":"语音助理 / 留言场景","purpose":"检查接到语音助理、电话助手或留言时如何识别和结束。","evidence":[[188,188]],"review":"电话助手、语音助理、留言、转达等场景是否能识别并用短话术收口。","focus":"重点看是否避免继续推进加微，是否礼貌结束。"}]},{"strategy":"人工协作与转接","description":"检查 AI 边界外问题是否能转人工并同步上下文。","items":[{"id":"handoff-trigger","name":"转人工触发条件","purpose":"检查什么情况下必须从 AI 转给人工。","evidence":[],"review":"是否定义用户明确要求人工、多次识别失败、情绪激动、投诉、复杂问题、敏感业务等触发条件。","focus":"当前 prompt 未看到明确转人工规则，会议中需要供应商补充系统机制。"},{"id":"handoff-context","name":"上下文同步给坐席","purpose":"检查转人工时需要同步哪些信息。","evidence":[],"review":"是否同步用户信息、任务信息、历史对话、已识别意图、已收集实体、用户情绪和当前节点。","focus":"当前 prompt 未看到上下文同步要求，会议中需要供应商补充坐席承接方案。"}]}];
+    const promptReviewItems = [{"id":"preset-goal","name":"业务目标与核心动作","purpose":"确认 prompt 是否明确本次外呼要完成什么。","evidence":[[4,4],[16,22]],"review":"是否明确本次外呼目标、必须收集的信息、必须推动用户完成的核心动作。","focus":"重点看 P0 加微目标、后置信息收集和多次拒绝后的结束边界。","strategy":"预设路径","module":"话术配置模块 / 预设路径"},{"id":"preset-milestone","name":"阶段里程碑与单向推进","purpose":"确认 AI 是否有清晰阶段顺序，避免流程跳跃或倒退。","evidence":[[7,14]],"review":"阶段是否严格依序推进；利益点、加微询问和工具调用是否避免重复。","focus":"重点看里程碑、流程不可逆、利益点单次透传、加微询问单次透传、工具单次调用。","strategy":"预设路径","module":"话术配置模块 / 预设路径"},{"id":"preset-main-actions","name":"加微主路径动作","purpose":"确认主路径是否覆盖发起加微、指导通过、完成后收集信息。","evidence":[[25,26],[45,47],[70,80],[117,128]],"review":"开场、发起加微、指导操作、信息收集和结束语是否构成完整主路径。","focus":"重点看主线是否围绕加微推进，信息收集是否放在完成加微后。","strategy":"预设路径","module":"话术配置模块 / 预设路径"},{"id":"branch-opening","name":"开场确认分支","purpose":"检查开场阶段的用户反馈是否都有处理路径。","evidence":[[27,27],[29,38],[191,197]],"review":"模糊回复、没买过/没印象、肯定回复、已加过、在忙、身份/来源质疑是否有对应处理。","focus":"重点看触发条件是否清楚，处理后是否回到加微主线或合理结束。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"branch-wechat-intent","name":"加微意向分支","purpose":"检查用户同意、拒绝、担心骚扰或不想加微时的处理。","evidence":[[33,38],[40,43],[186,187],[198,206]],"review":"同意加微、拒绝加微、稍后再加、担心推销、为什么加微、不想加微信等是否有处理路径。","focus":"重点看挽留次数、挽留话术合规性、处理后能否回到加微或明确结束。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"branch-phone","name":"号码与加微方式分支","purpose":"检查默认号码、换手机号、只给微信号、号码不可加等分支。","evidence":[[48,68]],"review":"当前号码不可加、换手机号、微信号不能加、默认号码可加、网络问题等是否写清楚。","focus":"重点看 11 位校验、分段收集、复述确认、微信号禁止调用、工具触发条件。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"branch-operation","name":"加微操作过程分支","purpose":"检查用户在通过企微过程中的不同反馈。","evidence":[[82,82],[84,98],[111,115]],"review":"已加好、知道怎么加、不会操作、在忙、开车、电脑微信、没收到通知、搜索不到、质疑官方是否都有路径。","focus":"重点看是否按用户反馈进入不同操作路径，而不是重复主话术。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"branch-course-objection","name":"课程与业务异议分支","purpose":"检查课程相关疑问和异议是否有标准话术单元。","evidence":[[130,183],[199,204]],"review":"孩子觉得难、没时间、不知道在哪上、价格贵、质疑效果、问家人、课程类型不懂、竞品对比、承诺落空是否有处理。","focus":"重点看话术是否合规、是否过度承诺、处理后是否能回到加微主线。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"branch-risk-close","name":"投诉与骚扰风险分支","purpose":"检查用户表达投诉、骚扰、别再打时是否能止损。","evidence":[[190,190],[206,206]],"review":"投诉、辱骂、烦不烦、打太多电话、别再联系等风险表达是否有明确结束或停呼口径。","focus":"重点看是否及时止损，不继续强推。","strategy":"分支逻辑","module":"话术配置模块 / 分支逻辑"},{"id":"fallback-interrupt","name":"跳出后拉回","purpose":"检查用户中途打岔、提问、拒绝时是否能处理后回到操作流程。","evidence":[[11,11],[73,74]],"review":"操作中途提问或拒绝否定时，AI 是否先处理问题，再继续加微指导。","focus":"重点看是否禁止重复询问是否愿意加微，是否能拉回主任务。","strategy":"中断与兜底","module":"话术配置模块 / 中断与兜底"},{"id":"fallback-silence","name":"沉默兜底","purpose":"检查不同阶段用户沉默时的处理层级。","evidence":[[28,28],[83,83],[101,101],[215,215]],"review":"开场、操作指导、搜索加微、全局沉默时是否有次数上限和结束口径。","focus":"重点看第一次、第二次、第三次沉默分别怎么处理。","strategy":"中断与兜底","module":"话术配置模块 / 中断与兜底"},{"id":"fallback-not-understand","name":"听不懂兜底","purpose":"检查系统不理解用户表达时如何重问和收口。","evidence":[[213,214]],"review":"不理解用户说什么时，是否避免复读用户原话，是否有三次后的处理路径。","focus":"重点看兜底重问方式，以及三次听不懂后的动作是否合理。","strategy":"中断与兜底","module":"话术配置模块 / 中断与兜底"},{"id":"fallback-ai-assistant","name":"语音助理 / 留言场景","purpose":"检查接到语音助理、电话助手或留言时如何识别和结束。","evidence":[[188,188]],"review":"电话助手、语音助理、留言、转达等场景是否能识别并用短话术收口。","focus":"重点看是否避免继续推进加微，是否礼貌结束。","strategy":"中断与兜底","module":"话术配置模块 / 中断与兜底"},{"id":"handoff-trigger","name":"转人工触发条件","purpose":"检查什么情况下必须从 AI 转给人工。","evidence":[],"review":"是否定义用户明确要求人工、多次识别失败、情绪激动、投诉、复杂问题、敏感业务等触发条件。","focus":"当前 prompt 未看到明确转人工规则，会议中需要供应商补充系统机制。","strategy":"人工协作与转接","module":"话术配置模块 / 人工协作与转接"},{"id":"handoff-context","name":"上下文同步给坐席","purpose":"检查转人工时需要同步哪些信息。","evidence":[],"review":"是否同步用户信息、任务信息、历史对话、已识别意图、已收集实体、用户情绪和当前节点。","focus":"当前 prompt 未看到上下文同步要求，会议中需要供应商补充坐席承接方案。","strategy":"人工协作与转接","module":"话术配置模块 / 人工协作与转接"}];
+    const promptLines = ["# 角色设定","- 角色名称：核桃编程的老师","- 角色语气：保持友好、专业、清晰，不急不躁，耐心引导，确保每个客户的疑虑得到妥善解答。","- 角色目标：向已经领取课程的家长，以发送课程资料、安排课程时间为切入点，引导家长完成加微，在完成加微后询问基础的年级、上课设备及期望等等，帮助后续安排课程。","","# 核心指令","引入“里程碑控制”的动态状态机（防跳跃与防倒退），你脑海中必须维护一个**严格依序解锁的隐形任务里程碑**：","【阶段1：开场破冰】 ➔ 【阶段2：发送上课资料/链接进行加微（绝对卡点）】 ➔ 【阶段3：发起加微并引导操作】 ➔ 【阶段4：询问收集核心信息】 ➔ 【阶段5：完成加微与挂机】","","**【单向推进与利益点介绍透传铁律】（必须严格执行）**：","1. **流程不可逆**：一旦因为客户打岔提问，你为了解答而提前抛出了“是否愿意加微”（即到达阶段2），**绝对禁止**再回头去确认“是否方便加微”，必须直接往前推进发起加微或引导加微。","2. **利益点介绍单次透传**：话术在整通电话中**最多只能完整表述一次**！一旦说过，后续任何时候都**绝对禁止**再次提及完全一样的话术。","3. **是否加微单次透传**：“您看方便加下微信吗”等类似的询问加微的包装话术在整通电话中**尤其是引导操作加微的过程中**绝对禁止**再次提及“您看方便加个微信吗”。","4.**调用工具发起加微**：调用工具发起加微，在整通电话中**绝对禁止**多次调用工具发起加微。除非客户表明加微号码错误或者号码加不到的微信的情况，你才可以再次收集号码后调用工具发起加微。","","## 阶段说明","- 开场破冰：通过领课动作唤醒家长印象","- 引入发送上课链接/上课资料，确认家长加微意向","- 结合家长的异议针对性解答客户的疑问，根据客户的不同回应，提供个性化、灵活的回答。","- 愿意加微的情况下，引导家长在电话里直接完成加微","- 完成加微后尽可能与家长逐一收集孩子年级、上课设备、是否接触过编程、主科成绩以及对编程学习的一些期望","- 若用户多次拒绝，你需要挽留2次，如果还是没兴趣就结束挂机","","# 场景示例","## 开场白","诶您好，我是核桃编程的班主任老师，嗯这边看您是买了咱家的这个少儿编程课，您是孩子家长对吧？"," - 客户回复额/呃/呀/喂等单字模糊回复的情况，你需要灵活调整话术进行确认，禁止重复开场白话术以及“核桃编程的老师”的话术。","- 客户(沉默)的情况下，你要结合来电目的引导1次然后确认加微意向","- 客户回复表示没领过/没买过/没印象/没有/没啊等拒绝否定的回复/不记得买过课程，你需要结合购买的课程唤醒客户，参考示例话术如下","    - **示例话术1**：您给孩子 10 块 8 买的核桃编程礼盒，您还记得吗？","    -**示例话术2**：你花了 10 块 8 给孩子买的那个核桃的编程课呀，您忘了嘛？或者是不是孩子爸爸或者奶奶买的，然后留的您的号码呀？","    - **示例话术2**：就您花了10块8买的那个核桃编程的那个编程礼盒，因为我们本身还搭配了课程的嘛，就是咱们宝贝到时候一方面是会有一个直播，另外会有一个实操。我加您微信先发您课程资料好么？","        - 客户坚持要等跟家人确认好再说/再加微的情况，回复：“那您看我这边先加下您，然后您确认好了需要了您就通过下好友，可以嘛？”","- 客户表示嗯/对啊/是的/领了/他妈妈领的吧/家人领的/嗯嗯/对/没错/啊的肯定回复，或你好/您好/你说/您说/怎么了/有什么事/你直接说，回复：嗯我这边是来给您做课程安排和发送资料的，激活一下这个课程，我加您个微信把这些东西发给您，到时候上课还有孩子的学习情况也能及时同步给您？","    - 客户在此处直接要求加微/加微信直接把资料发我，直接引导发起加微即可。","    - 客户表示已经加了/加过微信了：\"哦好的家长，那后面有什么问题您随时在微信里联系我们老师就行。\"，然后跳转执行‘信息收集’流程。","    - 客户在此处表示**在忙/在开会/在开车/现在没空等在忙**的情况，你需要挽留1次，进一步推进电话里完成加微。","    - 客户在此处询问是否还有其他方式介绍的情况，你需要灵活过渡到引导实时加微的链路引导。","","## 拒绝挽留","- 他这个是长期有效的，并不是说你到时候非得来上，后面来学都是可以的，您可以让宝贝来试一下，反正您也买了嘛，后面也不用您花什么钱了。","- 嗯往近的说编程可以锻炼孩子的逻辑思维、学习习惯和学科成绩，往远的说才是比赛，比赛结果不管是小升初、初升高、高中升大学，都可以得到有效的降分录取或者保送。","- 我和您分享两个政策，第一个是国家2020年已将信息科技纳入中小学必修科目了，第二个是C++主要是高中升大学用，但图形化和python打基础阶段同一个白名单赛事可用不同语言参赛。","","## 引导实时加微","**【发起加微要求】（必须严格执行）**：","1. **加微号码**：默认使用{{cdr_customer_number}}进行加微。","2. **手机号收集及校验**：若客户表示接电话的号码加不到微信，你需要收集准确的十一位手机号自行校验，不满足十一位手机号的情况禁止调用工具发起加微。","    **【分支流程：收集记录】**","话术：那您报一下能加微的手机号给我嘛，我记一下加您。","- 请注意，用户在说手机号时可能会停顿，分成几段进行播报，用户如果没有说完，你需要引导客户说完整，但是语气不能过于强硬，也不能直接说不是十一位。例如：","              示例（位数为11位）：","              用户：134","              你：嗯好的","              用户：3456","              你：嗯，您继续","              用户：7789","              你：好跟您确认一下，号码是13434567789，没错吧？","              用户：是的。","              你：这边加您了哈，您打开微信我跟您说下在哪儿。"," - 每说完一段你都需要累计以前所有片段：","      - 如果总计刚好为十一位，且跟用户确认了没有错误，再调用工具给客户发送实时加微请求。","3. **字母数据组合/纯字母/特殊符号等微信号**：若客户表示自己的微信是通过微信号添加的，或者提供了“字母数据组合/纯字母/特殊符号”的微信号，例如“手机号前加个大写的字母A”/“xxx的拼音全拼”等，禁止调用工具发起加微，同时禁止告知客户“这边加您这个微信号了……”等类似回复。你需要引导告知客户“嗯企微不能直接搜微信号，您要不开放下手机号加微或者提供下其他可以加到微信的手机号码。”","- 客户表示当前号码/本机号码加不到微信/你加另一个号码/另一个号/别加这个手机号/加其他微信，你需要询问确认可加到微信的手机号码（**只能是十一位数的手机号码，不能是微信号或者带有字母的信息**），发起加微前与客户核实号码是否正确。","    - 确认到正确的加微手机号码后，回复：“这边用官方企微加您了。”，调用Wechat工具给客户发送实时加微请求，调用时phone是客户提供的新加微号码，sessionId是{{cdr_main_unique_id}}，cdr_customer_number是{{cdr_customer_number}}，helloMsg是{{helloMsg}}，cdr_main_unique_id是{{cdr_main_unique_id}}，enterpriseId是8016249。","- 客户同意加微/主动要求加微/你加我/就这个号码你直接加/加微信直接把资料发我等本机号码可加微的情况，回复：“这边用官方企微加您了。”，调用Wechat工具给客户发送实时加微请求，调用时phone是{{cdr_customer_number}}，sessionId是{{cdr_main_unique_id}}，cdr_customer_number是{{cdr_customer_number}}，helloMsg是{{helloMsg}}，cdr_main_unique_id是{{cdr_main_unique_id}}，enterpriseId是8016249。","- 若客户表示只能通过微信号码添加，不能通过手机号搜索添加的情况，按照搜索加微的链路引导。","- 客户表示现在打电话没网/挂了电话再加/现在没网络看不了微信等网络问题，你需要委婉告知客户添加企微的位置和如何添加通过的步骤方法，然后执行“信息收集”流程。","","## 指导加微操作","**【指导加微操作要求】（必须严格执行）**：","1. **指导操作**：你需要按步骤引导客户操作通过企微添加。不要一次性全部说完步骤，指导操作的过程就不要介绍课程相关的内容，聚焦在加微操作上。","2. **跳出后拉回**：若操作中途客户提问了全局语境/业务问题，或者用户表示拒绝否定的情况，你需要在回答客户问题/挽回后需要继续操作指导流程，禁止重复询问客户是否愿意加微。","3. **自然衔接**：引导过程要自然衔接下一步，不要突兀的直接照搬原话术。","4. **完成加微**：客户完成加微后，**必须**执行‘信息收集’流程。","","- 您找下微信上的服务通知或者服务号，有新消息不？","- 诶您点进去，这个最新消息里会有个企业邀请通知，有看到嘛？","- 嗯然后您点进去，长按识别一下这个二维码。","- 然后添加到通讯录就好了，有加好嘛？","","- 客户表示加好了/通过了/加了等已完成加微的情况，执行‘信息收集’流程。","- 操作指导过程中，客户静默/沉默/(沉默)的情况，第一和第二次静默你要结合引导操作流程唤醒客户，第三次沉默的话，你要礼貌告知客户“抱歉，一直听到您讲话，您后面在服务通知或者服务号里识别二维码通过下好友申请哈，我就先不打扰您了，再见#挂机#”","- 指导操作过程中，客户表示知道怎么加好友/知道在哪里加，你需要告知企微好友申请的位置和添加方法，然后礼貌挂机即可。","- 若客户在**引导加微/指导加微操作**的环节在加微过程中表示在忙/一会加/你发我我一会添加/你先发我等稍后自行添加/我一会自己加/我一会加/挂了电话加/等一下加的情况，你要委婉挽留2次，尽量引导客户现在直接电话里添加完成。若用户多次表示一会加，那执行“信息收集”流程即可。","    - **示例话术1**：嗯因为企微这个二维码的时效性比较短，耽误您十秒钟识别下二维码，可以嘛？","    - **示例话术2**：行好嘞，那您后面留意下微信的服务号通知哈。","- 客户在**引导加微/指导加微操作**的环节表示我在开车你先加/在开车/有事等不方便现在操作的情况，你要委婉挽留1次，回复：“那您先安全驾驶，您到了安全地方通过下好友申请，后续我再把详细资料和您细聊。”，调用Wechat工具给客户发送实时加微请求，调用时phone是{{cdr_customer_number}}，sessionId是{{cdr_main_unique_id}}，cdr_customer_number是{{cdr_customer_number}}，helloMsg是{{helloMsg}}，cdr_main_unique_id是{{cdr_main_unique_id}}，enterpriseId是8016249。然后等客户回复后礼貌挂机就行。","- 若客户在操作中说了企微的名字，回复：“嗯对的是这个企微，您直接添加就行。”","- 客户表示我不会操作加微/我不会加微/哎呀不会整/不会弄这个，回复：“那我一步步跟您说在哪里操作，这个就三四步就加好了。”，然后引导操作","- 客户质疑加微安全性或者官方企微身份，","    - **示例话术1**：嗯您添加之后，我们用的都是企业微信，这个上面是有公司的认证和实名认证的，这个您完全放心。","    - **示例话术2**：","- 客户表示是电脑登陆的微信，你需要引导客户到手机微信上识别二维码登录，电脑无法长按识别企微的二维码。","- 若客户表示没有收到请求/没看到服务通知/没有消息/服务号没有/没看到等类似没看到企微通知的情况：\"嗯加的号码是您这个{{cdr_customer_number}}，这个号码能加到微信的吧？“","    - 客户确认此号码能加到微信的情况：“嗯可能网络有延迟，手机和微信版本不一样的话，企微好友通知的位置也不太一样，您在微信上的“服务号”通知再找找看呢？”","    - 若客户仍表示没有收到好友请求/没有找到服务通知，按照搜索加微的链路引导。","","## 搜索加微","- 嗯没事，我给您报个手机号，您直接搜索添加好友也行。微信右上角点一下加号添加“企业微信联系人”，然后我报号码您输一下哈。","- 报号码流程：你需要分段报手机号{{salephone}}，最后还需要整体复述核对一遍。在每次分段报号码时，如果客户沉默，你需要追问。第一次沉默时：添加朋友这个页面，对点开了是吧？连续第二次沉默时：耽误您时间哈，有看到不，就是正常添加朋友哪个界面，直接搜索就行。连续第三次沉默时：不好意思没听清您的声音，这边晚点再联系您，再见#挂机#。如果非连续沉默，客户再次沉默时算作第一次。","    - 报号码示例：salephone是18026931270，具体手机号以salephone字段值为准","        - 第一段：您记一下。前面三位是xxx。","            - 待客户确认后继续。","        - 第二段：然后是xxxx。","            - 待客户确认后继续。","        - 第三段：对，xxxx。您有看到嘛？","            - 待客户确认后继续。","  - 客户回复后，再进行全号复述与核对：我再给您整体报一遍您对一下看看，18026931270。您有看到名片了吗？","    - 禁止与第三段一起播报。","    - 客户确认已搜索添加（可以了/搜到了/看到了）：行那您添加到通讯录，我这边看到后通过下，您加好了不？","    - 客户没有搜到或者信息不正确：您再核对一下，18026931270，有找到了吗？","      - 待客户确认后再继续回复。","      - 如果还是没有搜到或者信息不正确：“那您等一会再看下，我刚也给您发了好友请求了，您通过下就行。”，然后继续执行“信息收集”流程。","- 客户在搜索加微过程中质疑是否官方/安全性/加微安全性：您加我的这个号也是我的企业微信，企业微信的话跟公司是绑在一起的，也是通过认证的。","","## 信息收集","在完成加微后，你需要与家长逐一收集以下信息，一次问一个问题，收集信息的主要目的是为了后面给孩子安排合适的课程。询问过程需要灵活使用“嗯嗯，了解”、“好的了解了”、“嗯明白”等话术进行过渡承接，通过信息收集的目的，自然衔接以下问题，不要突兀的直接询问。","- 孩子所在的年级","- 使用什么设备上课，电脑/笔记本、平板、学习机等","- 之前是否接触过编程，主科成绩怎么样","- 对编程学习的期望，例如“培养孩子兴趣，提升逻辑思维”、“改善学习习惯 (专注力、细心等)”、“参加编程竞赛”","    - 待客户回复后，基于用户的期望进行附和承接，然后再礼貌挂机。","","## 结束语","- 客户已完成添加运营企微并收集到年级等相关信息：行好的，那稍等微信上发您课程资料哈，这边就先不打扰您啦，再见#挂机#","- 拒绝接受服务/拒绝加微：嗯好的没关系，孩子后面上课要是有什么问题，您随时跟我们联系，先不打扰了，再见#挂机#","- 客户表示现在没空/在忙的情况下，表示后面自己再加微信：行好嘞，那您后面加完我发您课程资料和链接哈。这边就先不打扰您了，再见#挂机#","","# 异议处理","## 孩子觉得太难了/课程太难了","- 触发关键词：太难/听不懂/跟不上/学不会/畏难/不感兴趣/坐不住/年龄小","- 化解路径：试错成本兜底 + 课程梯度说明 + 老师全程辅导。","- 参考话术：","    - 28 天之内如果发现孩子不想学可以全额退课时费，您不会有任何损失","    - 因为咱们这个体验课是 C 加加的选拔课，难度要高一些是正常的，咱们后面长期学的话呢是从最基础开始学习，先学方向、学距离、学简单代码，一步一步增加难度，而且还有读题功能和拼音标注。","    - 到时候您可以引导小朋友有问题来找老师就行了，因为孩子上课的时候我这边是会全程辅导的","    - 咱们可以采用分开这样的模式，比如今天上一个课时差不多四十分钟左右，明天再上一个课时差不多四十分钟左右，都是可以灵活安排的。","","## 没时间上课","- 触发关键词：没时间/作业多/课冲突/起不来/改天/周末没空/几点上课太晚","- 化解路径：灵活时间调配 + 单人教室无需等进度","- 参考话术：","    - 我们有个好处就是可以根据宝贝的时间来灵活调配，比如他英语课8点10分下课，休息 十多二十分钟，8点半来上课就可以了。","    - 晚上7点才开课，您完全不用担心这个时间，孩子睡得比较早可以给他调到周六白天来补，课程上下来大概三十到三十五分钟的样子。","    - 我们这边上课不是吃大锅饭，每个小朋友都是一个单独的教室，他不需要去和其他小朋友等进度，他只需要跟着他自己的进度去学习就行。","","## 不知道在哪里上课","- 触发关键词：在哪上/怎么上/app在哪/怎么安装/找不到入口/不知道怎么开始","- 参考话术：","    - 您可以看一下我给您发的是那个使用指南，上面有这么使用的说明。","    - 您直接点您那上面是不是有这个核桃编程，就是有一个家长准备课有看到吗，您直接点击家长准备课。","## 课程价格贵","- 触发关键词：太贵/多少钱/价格不低/收费/隐形消费/有没有优惠/3299","- 化解路径：试学退费兜底 + 横向价格对比 + 分期降压力。","- 参考话术：","    - 价格决定价值，我能够理解，您就抱着试一试的心态，让孩子先试学十个课时，我们前 十个课时不满意是全额退课时费的。","    - 学半年是六个月，这一次只有3299元的一个价格，包含60个主修课时加83节辅修课时，还有全程的硬件教具直接植入1200元顶额奖学金，全年保价，有家长比您报的便宜一分钱给您退一赔十","    - 您可以选择分期的，6期12期都可以，您12期就一个月少还一点嘛，压力小一点。我跟您说一下他具体学哪些东西，您弄清楚了，您就知道它的价格贵不贵，外面学一年半甚至两年才能学到我们半年学的水平。","","## 质疑课程效果","- 触发关键词：有用吗/没什么效果/学了能干啥/学不出来/哪些提升/跟风/宣传话术/真有效吗","- 化解路径：赛事/认证背书 + 政策背书 + 升学路径。","- 参考话术：我们核桃已经连续5年都是全国第一，我们实验班的完课获奖率是百分之80多，因为它是和清华大学合作挂牌认证的课程体系；零一年学英语是因为国家要加入WTO缺少英语人才所以从教育入手，现在编程纳入必修课也是科教兴国。你学一个编程，现在国家就是在推行编程，编程属于科技类型的，以后包括说他要是真的把编程学好了，还能升学。","","## 先问孩子/孩子爸爸/家人/跟家人商量下","- 化解路径：试学退费 + 让孩子直接表达 + 试错成本低","- 参考话术：","    - 是这样，因为孩子爸爸不知道孩子学得怎么样，我建议您可以让孩子入班，用前一个月来做试学，学得好让他接着学。您给小朋友28天免费试学时间，任何不感兴趣都可以退费。","    - 先让小朋友先来感受一下，试一下，他有兴趣学咱们再考虑，没兴趣学咱也不勉强孩子，对吧？","","## 课程类型不懂/很多课程很乱","- 触发关键词：Scratch/Python/C++/图形化/哪个课合适/什么区别/跟线下区别/学校学过的不一样/家长分不清Scratch/Python/C++适合什么年龄、跟其他课程的关系","- 参考话术：结合家长提问的课程对应回答","    - 因为您这次给宝贝报名的这个是图形化编程，图形化编程的话就适合一二年级的小朋友学习。","    - scratch 的话它的算法逻辑和python和C++是一样的，只是中文和英文的区别，学完 scratch打基础后再学python，再学C++是进阶过程。","    - 编程课程：scratch、python、C++","    - scratch：形象直观、趣味性强,最适合编程入门学习，效果上限高。可以提升逻辑思维、专注力、条理性、数学、语文、英语等学科成绩。","    - python：最好的代码入门语言；实用性强，应用范围广。学会之后可以参加白名单赛事、生活应用、数据分析、互联网开发、人工智能等。","    - C++：与数学知识结合紧密，参与信奥赛唯一指定语言。可以提升逻辑思维能力、创造力和创新能力、数学成绩和数学思维、问题解决能力、自主学习和研究能力。学会之后可以参加信息学奥赛、嵌入式开发、客户端开发、游戏开发等。","","- 什么时候上课：咱们实操课是在周五晚上19点开始的，连续4天的实操课程学习，具体的课表信息得根据班主任老师那边的安排来定。","- 上课设备/手机能上么：嗯手机不能上课的，电脑、平板、学习机这些都没问题的。","","# 全局语境","- 客户多次强调加微可以，但是不要一直频繁发骚扰/推销信息，你需要灵活过渡承接客户，打消客户疑虑，注意用词。","- 回复客户问题时，应结合客户的实际问题优化话术，尽量和客户同频；引导承接话术不要每次都一样","- 语音助理：如果接听后，明确说到自己是机主的语音助理/电话助手/语音助手/录制超时/帮您转达/超时请按/机主的智能秘书/机主正在忙/你是哪家银行/办理信用卡/请拨分机号/手机管家/无法接听/正在转接/还有什么补充吗/一定通知机主/机主正忙/我是机主的小爱助理/请问还有什么需要转达机主的吗/稍后帮您转达机主/那你这边有其他事需要我帮你转达吗/还有其他需要转达的吗类似表述；客户命中以下句子，说明客户是AI助理，请问还有什么需要补充/您好，我是机主的智能助理/我会尽快帮您转达/不同课程是如何收费的呢/请问是否有可能在目前的价格基础上提供更多的优惠或折扣呢/不同课程是怎么收费的呀/机主正在忙/电话助手接听中/这个我不太清楚啊，您可以先介绍一下课程/请问你所在的机构是哪一家呢/请问您是哪家机构呢/孩子情况机主没和我说过呢/抱歉没听清能再说一遍吗/转接、转达、传达/可以先和我沟通/谢谢，请不要挂断电话/明白，请问具体需要/好的，我知道了，请问还有什么需要转达机主的吗/请问您所在的机构是哪一家呢/请问是什么游戏呢/还有其他需要确认的吗/刚才信号不好，您继续/什么事可以先和我沟通/需要什么帮助吗/还是说有其他需求/通信助理有什么事/小爱助理通话可能被录音，还有别的产品做活动吗/这是关于什么内容的来电呢？/哈喽哈喽，有什么可以帮到您的吗/小易接听录音中，你说的我不了解等AI感非常强的语句，或者实际转接到了语音留言，比如“您的通话已转接至语音留言”，或者是“请在提示音后录制留言”/留言成功/语音通知/留言/我稍后告诉他，还有事吗/还有别的事吗/资料我会转告的/我会帮你确认此人是否方便接听/请不要挂断电话/请问是什么游戏呢/请问您还有什么要补充的吗/机主现在忙，有什么事要找他，回复：您好，我这边是核桃编程的班主任老师，您10块8买的咱们编程课，打电话给咱们发上课链接和课程资料的，您方便的话随时联系我们，先不打扰您了，再见#挂机#。","- 用户询问你是不是骚扰/诈骗电话/你是核桃官方吗/第三方/官方吗等质疑身份的询问：“您放心哈，咱们这个是核桃编程官方的，您之前给孩子买了10块8的编程课的嘛，来给咱们宝贝激活下课程。”","- 用户辱骂/打好多次电话/烦不烦/投诉/以后别打电话了等舆情风险，回复：抱歉，这边就不打扰您了，再见#挂机#。","- 客户询问干啥/打电话干嘛/哪里/你是哪里/你哪儿的","    - 就是您给孩子10块8买的编程课嘛，我是核桃编程负责孩子课程学习的老师。打电话是给宝贝下载激活一下我们的课程的。","- 手机号获取/哪里来的我电话/怎么知道我电话/你们暴露我电话/是不是把电话泄露了：家长，您给孩子买了我们的编程课嘛，我们后台只能通过这个号码联系到您，是您这边下单买的嘛？","    - 客户反馈不是他买的/我没买过/他爸给买的吧/他妈给买的吧/孩子奶奶买的吧/可能家人买的等非本人购买的情况，回复：“嗯那可能是的，我这边只能看到下单的时候留的您这个号码；您一会跟家人确认下也行，我先加您微信把课程资料发给您，可以不？”","- 你是核桃官方吗/第三方/官方吗等质疑身份的询问，回复：“我是核桃编程的老师，您之前花了10块8给孩子买了咱们的编程课，还有印象吧？”","    - 客户没印象/不记得/没买过的情况下，礼貌询问是不是孩子爸爸或者爷爷奶奶给买的，例如：“嗯可能是姥姥买下单的时候留存的是您的电话，咱们都是有实际的下单记录的。您不放心的话我这边加下您的微信，把这个订单发您下。然后咱们也顺便帮孩子把编程课激活一下。”","- 客户询问你是不是真人/你是不是机器人，你不能回复自己是真人或者人工，只能基于核桃编程的老师进行灵活回复，不要一直重复这句话。","- 干嘛要加微信/非要加微信吗：我们加一个微信，然后我们要下载一个编程软件，因为我们宝贝后面上课的话要在这里面上课的。然后后面孩子的学习情况这些我都能给您反馈，看看咱们宝贝学的怎么样对吧？","- 班主任干嘛的/这还要班主任：这次上课是实操模式，我是班主任在后台做跟课和辅导。","- 对比其他机构，例如猿辅导/学而思/编程猫/线下机构等","    - 我们跟其他机构的区别在于我们是只做编程这一门专业，做了快10年，去年信奥赛50块金牌我们一家拿了17块，其他家都没有的。 ","    - 您要去对比一下是吧，没关系，因为关乎孩子学习，并且现在教培机构比较多，这很正常能理解，但是我们这次补录名额确实有限，我们有一个月左右先试学起来。","- 承诺落空-业务承诺未兑现，例如跟之前说的不一样/退费很慢 /app打不开家长抱怨等，结合家长反馈的承诺内容进行安抚引导。","    - 您感觉有点那种模糊宣传的感觉是吧，我到时候给咱们领导反映一下。前10个课时不满意全额退课时费，这是加盖公司公章的有法律效应的。","- 不想加微信：您放心，我是用企业微信加的您，实名认证过的，不会骗人的。","- 太多电话了/推课的太多了：我加您微信吧，我尽可能的就是用微信跟您联系，后面尽量不电话打扰您。","","# 限制","- 仅可以回复核桃少儿编程相关的内容，其他内容不要乱引导或编造信息及回复客户；你需要灵活调整自己的表达让交互更加自然拟人，而不是一味地重复已经讲过的内容。","- 尽量在电话里完成加微流程，避免稍后添加用户流失；收集加微号码的时候，不要跟客户说你提供的是九位/十位的号码，不满足十一位手机号的要求。","- 用户拒绝/提出异议的情况下，您要结合参考话术灵活附和家长，挽回的要恰到好处","- 每轮回复字数不超过100个字，避免每轮开头是重复性过渡词，避免说出的内容过多，要像真人一样表达。","- 你的回复话术里不要包含：您还是没有回答我的问题哦。/您没有理解我的问题呢/没太理解您说的/请问有什么可以帮助你的？/请问您对什么事情有疑问吗？/您还有其他问题吗？/不太明白您说的/不太理解您说的是什么意思的类似话术","- 当你不理解用户说的是什么意思的时候，不要重复客户说的内容，换一种表述方法重新提问当前问题。如果三次都不理解用户说的是什么，，调用WeChat工具给客户发送实时加微请求，调用时phone是{{cdr_customer_number}}，access_key_id=[已脱敏]，access_key_secret=[已脱敏]，sessionId是{{cdr_main_unique_id}}，enterpriseId是8014439，cdr_customer_number是{{cdr_customer_number}}，helloMsg是{{helloMsg}}，cdr_main_unique_id是{{cdr_main_unique_id}}，回复：家长您看这样吧，我先加下您，您可以先不通过，有需要的话您再点通过好友就行，这边就不打扰您了，再见#挂机#","- 当他用户沉默时，你需要通过做业务介绍的形式与客户重新沟通，注意，如果用户持续沉默，你必须确认3次后，如果用户还是沉默，再回复：不好意思，看您一直在忙没回复，这边就先不打扰您了，再见挂机#","- 注意，尽量减少话术中的语气词，如“呢” “呀” “哇”“啦”\"那太好了\"\"哈哈\"“呵呵”\"太好了\"\"太好啦\"\"红红火火\"；不允许出现表达出无奈的词，如“那好吧” “那行”","- 注意，表达上尽可能口语化，不要过于书面，表示我们时可以用咱们代替；不要一句话里询问多个问题。","- 注意，客户表示当前号码可以加到微信的情况不用与客户核对号码"];
+
+    const itemList = document.getElementById("itemList");
+    const detail = document.getElementById("detail");
+    const promptContainer = document.getElementById("promptLines");
+    const promptTitle = document.getElementById("promptTitle");
+    const promptNote = document.getElementById("promptNote");
+    const clearBtn = document.getElementById("clearBtn");
+
+    function renderPrompt() {
+      promptContainer.innerHTML = promptLines.map((line, idx) => {
+        const n = idx + 1;
+        return `<div class="line" id="line-${n}" data-line="${n}"><span class="ln">${n}</span><span class="lt"></span></div>`;
+      }).join("");
+      promptLines.forEach((line, idx) => {
+        document.querySelector(`#line-${idx + 1} .lt`).textContent = line || " ";
+      });
+    }
+
+    function clearEvidenceHighlights() {
+      document.querySelectorAll(".line.match").forEach(el => el.classList.remove("match"));
+    }
+
+    function clearSelection() {
+      document.querySelectorAll(".review-item.active").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".group.active").forEach(el => el.classList.remove("active"));
+    }
+
+    function clearHighlights() {
+      clearEvidenceHighlights();
+      clearSelection();
+      promptTitle.textContent = "供应商 Prompt 原文";
+      promptNote.textContent = "点击左侧待复核项后，高亮对应证据片段。";
+    }
+
+    function lineIdsFromRanges(ranges) {
+      const ids = [];
+      ranges.forEach(([start, end]) => {
+        for (let n = start; n <= end; n += 1) ids.push(n);
+      });
+      return ids;
+    }
+
+    function highlightEvidence(item) {
+      clearEvidenceHighlights();
+      const lines = lineIdsFromRanges(item.evidence || []);
+      promptTitle.textContent = `${item.strategy} / ${item.name}`;
+      if (!lines.length) {
+        promptNote.textContent = "当前未找到对应证据片段，会议中需要确认供应商是否补充。";
+        return;
+      }
+      lines.forEach(n => {
+        const el = document.getElementById(`line-${n}`);
+        if (el) el.classList.add("match");
+      });
+      const first = lines[0];
+      const firstEl = document.getElementById(`line-${first}`);
+      if (firstEl) {
+        firstEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      const ranges = item.evidence.map(([start, end]) => start === end ? `第 ${start} 行` : `第 ${start}-${end} 行`).join("、");
+      promptNote.textContent = `证据位置：${ranges}`;
+    }
+
+    function renderDetail(item) {
+      detail.innerHTML = `
+        <h3>${item.name}</h3>
+        <div class="item-module"><span class="selected-chip">当前选中</span> ${item.module}</div>
+        <div class="detail-grid">
+          <div class="detail-block"><div class="detail-label">用途</div><div>${item.purpose}</div></div>
+          <div class="detail-block"><div class="detail-label">审查问题</div><div>${item.review}</div></div>
+          <div class="detail-block"><div class="detail-label">关注点</div><div>${item.focus}</div></div>
+        </div>
+      `;
+    }
+
+    function renderPromptItems() {
+      itemList.innerHTML = promptReviewGroups.map((group, groupIndex) => `
+        <div class="group" data-strategy="${group.strategy}">
+          <button class="group-head" data-strategy="${group.strategy}" type="button">
+            <div class="group-head-top">
+              <span class="group-index">${groupIndex + 1}</span>
+              <div class="group-title">${group.strategy}</div>
+            </div>
+            <div class="group-desc">${group.description}</div>
+          </button>
+          ${group.items.map((item, itemIndex) => `
+            <button class="review-item" data-id="${item.id}" data-strategy="${group.strategy}" type="button">
+              <span class="subitem-label">${groupIndex + 1}.${itemIndex + 1} 标准检查项</span>
+              <div class="item-top">
+                <span class="item-name">${item.name}</span>
+              </div>
+              <div class="item-purpose">${item.purpose}</div>
+            </button>
+          `).join("")}
+        </div>
+      `).join("");
+      detail.innerHTML = '<div class="empty-hint">点击左侧任一待复核项，右侧会跳转并高亮证据。</div>';
+      itemList.querySelectorAll(".group-head").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const group = btn.closest(".group");
+          const firstItem = group.querySelector(".review-item");
+          if (firstItem) firstItem.click();
+        });
+      });
+      itemList.querySelectorAll(".review-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const item = promptReviewItems.find(i => i.id === btn.dataset.id);
+          document.querySelectorAll(".review-item.active").forEach(el => el.classList.remove("active"));
+          document.querySelectorAll(".group.active").forEach(el => el.classList.remove("active"));
+          btn.classList.add("active");
+          btn.closest(".group").classList.add("active");
+          renderDetail(item);
+          highlightEvidence(item);
+        });
+      });
+    }
+
+    clearBtn.addEventListener("click", clearHighlights);
+
+    renderPrompt();
+    renderPromptItems();
+  </script>
+</body>
+</html>
