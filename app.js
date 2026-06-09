@@ -1,6 +1,6 @@
 import {
-  activityTemplate, pages, styles, fontStyles,
-  visualDirections, explorationLevels,
+  activityTemplate, pages,
+  visualDirections,
   keyQuestions, optimizationOptions, globalUpdateOptions,
   defaultDesignSpec, defaultOps, modelRouting,
 } from './data.js';
@@ -30,16 +30,12 @@ const PSD_LAYER_NAMES = [
 
 const state = {
   pages: new Set(['mini-card', 'promo-poster', 'upload-page']),
-  styles: new Set(['prize-stack']),
+  styles: new Set(['reward-lively']),   // = 当前视觉方向 id（由 syncStyleFromStyleLock 派生）
   styleLock: {
     directionId: 'reward-lively',
-    explorationId: 'light',
-    density: '标准',
     avoid: '不要太花；不要像淘宝广告；不要小字太多',
     globalNotes: [],
   },
-  fontStyle: 'default-walnut',   // v0：单一字体作用全图
-  fontCustom: '',                // 自定义字体描述（仅 fontStyle === 'custom' 时用）
   prdRaw: '',
   prdAnswers: {},
   refs: [],                      // [{ name, dataUrl }]
@@ -269,51 +265,20 @@ function readFileAsDataUrl(file) {
 }
 
 // ==========================================================================
-// Render: Step 3.5 / 字体风格
-// ==========================================================================
-
-function renderFontChips() {
-  const box = $('#fontChips');
-  if (!box) return;
-  box.innerHTML = '';
-  for (const f of Object.values(fontStyles)) {
-    const chip = el('span', {
-      class: 'style-chip' + (state.fontStyle === f.id ? ' active' : ''),
-      title: f.desc,
-      onclick: () => {
-        state.fontStyle = f.id;
-        renderFontChips();
-        $('#fontCustomField').style.display = (f.id === 'custom') ? '' : 'none';
-      },
-    }, f.name);
-    box.append(chip);
-  }
-  // 自定义 textarea 绑定
-  const ta = $('#fontCustom');
-  if (ta) {
-    ta.value = state.fontCustom;
-    ta.oninput = (e) => { state.fontCustom = e.target.value; };
-  }
-}
-
-// ==========================================================================
 // Render: Step 7 / Campaign Style Lock
 // ==========================================================================
 
 function syncStyleFromStyleLock() {
   const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
-  state.styles = new Set([direction.styleId]);
+  // styleId 即视觉方向 id：每页只有一个结构模板，视觉由这个方向驱动，不再借用旧风格库。
+  state.styles = new Set([direction.id]);
 }
 
 function getStyleLockCompiled() {
   const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
-  const exploration = explorationLevels[state.styleLock.explorationId] || explorationLevels.light;
   return {
     directionId: direction.id,
     directionName: direction.name,
-    explorationId: exploration.id,
-    explorationName: exploration.name,
-    density: state.styleLock.density,
     avoid: state.styleLock.avoid,
     operatorIntent: direction.operatorIntent,
     background: direction.background,
@@ -323,7 +288,6 @@ function getStyleLockCompiled() {
     prizeLayout: direction.prizeLayout,
     decoration: direction.decoration,
     directionPrompt: direction.prompt,
-    explorationPrompt: exploration.prompt,
     globalNotes: state.styleLock.globalNotes,
   };
 }
@@ -349,37 +313,6 @@ function renderStyleChips() {
     }
   }
 
-  const exploreBox = $('#exploreChips');
-  if (exploreBox) {
-    exploreBox.innerHTML = '';
-    for (const ex of Object.values(explorationLevels)) {
-      exploreBox.append(el('span', {
-        class: 'style-chip' + (state.styleLock.explorationId === ex.id ? ' active' : ''),
-        title: ex.prompt,
-        onclick: () => {
-          state.styleLock.explorationId = ex.id;
-          renderStyleChips();
-          renderBriefPreview();
-        },
-      }, ex.name));
-    }
-  }
-
-  const densityBox = $('#densityChips');
-  if (densityBox) {
-    densityBox.innerHTML = '';
-    for (const density of ['清爽', '标准', '热闹']) {
-      densityBox.append(el('span', {
-        class: 'style-chip' + (state.styleLock.density === density ? ' active' : ''),
-        onclick: () => {
-          state.styleLock.density = density;
-          renderStyleChips();
-          renderBriefPreview();
-        },
-      }, density));
-    }
-  }
-
   const avoid = $('#styleAvoid');
   if (avoid) {
     avoid.value = state.styleLock.avoid || '';
@@ -398,13 +331,22 @@ function renderStyleLockSummary() {
   if (!box) return;
   const lock = getStyleLockCompiled();
   box.innerHTML = '';
-  box.append(
-    el('div', { class: 'style-lock-row' }, [el('strong', {}, '背景氛围'), el('span', {}, lock.background)]),
-    el('div', { class: 'style-lock-row' }, [el('strong', {}, '标题字效'), el('span', {}, lock.titleEffect)]),
-    el('div', { class: 'style-lock-row' }, [el('strong', {}, '色彩倾向'), el('span', {}, lock.color)]),
-    el('div', { class: 'style-lock-row' }, [el('strong', {}, '按钮样式'), el('span', {}, lock.button)]),
-    el('div', { class: 'style-lock-row' }, [el('strong', {}, '奖品摆放'), el('span', {}, lock.prizeLayout)]),
-  );
+  const rows = [
+    ['🌅', '背景氛围', lock.background],
+    ['🖋', '标题字效', lock.titleEffect],
+    ['🎨', '色彩倾向', lock.color],
+    ['🔘', '按钮样式', lock.button],
+    ['🎁', '奖品摆位', lock.prizeLayout],
+    ['🎀', '装饰元素', lock.decoration],
+  ];
+  for (const [icon, label, value] of rows) {
+    box.append(
+      el('div', { class: 'style-lock-row' }, [
+        el('strong', {}, `${icon} ${label}`),
+        el('span', {}, value),
+      ])
+    );
+  }
 }
 
 // ==========================================================================
@@ -420,16 +362,6 @@ function updateGenButton() {
 }
 
 function buildContext() {
-  // 解析字体风格：custom 时取 textarea，否则取库里的 prompt 片段
-  let fontPrompt = '';
-  let fontName = '';
-  const f = fontStyles[state.fontStyle];
-  if (f) {
-    fontName = f.name;
-    fontPrompt = state.fontStyle === 'custom'
-      ? state.fontCustom.trim()
-      : f.prompt;
-  }
   return {
     ops: state.ops,
     spec: state.designSpecText.trim()
@@ -438,7 +370,6 @@ function buildContext() {
     prdInfo: summarizePrdInfo(state.prdAnswers, state.prdRaw),
     special: state.special,
     refs: state.refs,
-    fontStyle: { id: state.fontStyle, name: fontName, prompt: fontPrompt },
     styleLock: getStyleLockCompiled(),
   };
 }
@@ -454,7 +385,7 @@ async function generate() {
   for (const pageId of state.pages) {
     for (const styleId of state.styles) {
       const id = `${pageId}__${styleId}`;
-      const prompt = buildPrompt(pageId, styleId, ctx);
+      const prompt = buildPrompt(pageId, ctx);
       items.push({
         id, prompt, model,
         size: pageSizeHint(pageId),
@@ -551,8 +482,7 @@ function renderResults() {
 
 function renderResultCard(r) {
   const page = pages[r.pageId];
-  const style = styles[r.styleId];
-  const suggested = suggestOptimizations(r.pageId, r.styleId, optimizationOptions);
+  const suggested = suggestOptimizations(r.pageId, optimizationOptions);
   const styleLock = getStyleLockCompiled();
 
   const imgWrap = el('div', { class: 'img-wrap' + (r.pageId !== 'mini-card' ? ' poster' : '') });
@@ -653,7 +583,7 @@ function renderResultCard(r) {
     imgWrap,
     el('div', { class: 'result-meta' }, [
       el('span', {}, `页面结构：${page.structure || page.mainElement}`),
-      el('span', {}, `继承风格：${style.name}`),
+      el('span', {}, `视觉方向：${styleLock.directionName}`),
     ]),
     scopeHint,
     optRow,
@@ -698,8 +628,6 @@ async function loadDemoResult() {
   state.pages = new Set(['mini-card', 'promo-poster', 'upload-page']);
   state.styleLock = {
     directionId: 'reward-lively',
-    explorationId: 'light',
-    density: '标准',
     avoid: '不要太花；不要像淘宝广告；不要小字太多',
     globalNotes: [],
   };
@@ -717,7 +645,7 @@ async function loadDemoResult() {
   state.refs = [];
 
   const ctx = buildContext();
-  const prompt = buildPrompt(pageId, styleId, ctx);
+  const prompt = buildPrompt(pageId, ctx);
   const demoUrl = await buildDemoImageDataUrl();
   state.results = [{
     id: `${pageId}__${styleId}__demo`,
@@ -874,7 +802,7 @@ function buildBrief() {
   return {
     activity: activityTemplate,
     pages: [...state.pages].map(id => pages[id]),
-    styles: [...state.styles].map(id => styles[id]),
+    directions: [...state.styles].map(id => visualDirections[id]).filter(Boolean),
     styleLock: getStyleLockCompiled(),
     designSpec: state.designSpecText.trim()
       ? { ...defaultDesignSpec, _override: state.designSpecText.trim() }
@@ -884,7 +812,7 @@ function buildBrief() {
     refs: state.refs.map(r => ({ name: r.name })),  // 不导出 base64，避免文件爆炸
     special: state.special,
     results: state.results.map(r => ({
-      id: r.id, page: pages[r.pageId].name, style: styles[r.styleId].name,
+      id: r.id, page: pages[r.pageId].name, style: getStyleLockCompiled().directionName,
       status: r.status, url: r.url, prompt: r.prompt,
       optSelected: [...r.optSelected], optText: r.optText,
       localDeltas: r.localDeltas || [],
@@ -903,13 +831,12 @@ function buildMarkdown(b) {
   L.push('');
   L.push(`## Campaign Style Lock`);
   L.push(`- 视觉方向：${b.styleLock.directionName}`);
-  L.push(`- 探索程度：${b.styleLock.explorationName}`);
-  L.push(`- 画面密度：${b.styleLock.density}`);
   L.push(`- 背景氛围：${b.styleLock.background}`);
   L.push(`- 标题字效：${b.styleLock.titleEffect}`);
   L.push(`- 色彩倾向：${b.styleLock.color}`);
   L.push(`- 按钮样式：${b.styleLock.button}`);
-  L.push(`- 奖品摆放：${b.styleLock.prizeLayout}`);
+  L.push(`- 奖品摆位：${b.styleLock.prizeLayout}`);
+  L.push(`- 装饰元素：${b.styleLock.decoration}`);
   if (b.styleLock.avoid) L.push(`- 不想要：${b.styleLock.avoid}`);
   L.push('');
   L.push(`## PRD 关键信息`);
@@ -923,7 +850,7 @@ function buildMarkdown(b) {
   L.push(`## 设计规范`);
   L.push(`- 主色：${b.designSpec.primary} / 强调：${b.designSpec.accent}`);
   L.push(`- CTA：${b.designSpec.ctaShape}`);
-  L.push(`- 字体：${b.designSpec.fontFeel}`);
+  L.push(`- 标题字效（按所选方向）：${b.styleLock.titleEffect}`);
   if (b.designSpec._override) L.push(`- 本次覆盖：${b.designSpec._override}`);
   L.push('');
   L.push(`## 生成结果`);
@@ -953,8 +880,8 @@ function buildFigmaMakeBrief(b) {
   L.push(`- 米黄底：${b.designSpec.bgSoft}`);
   L.push(`- CTA：${b.designSpec.ctaShape}`);
   L.push(``);
-  L.push(`## 字体感觉`);
-  L.push(b.designSpec.fontFeel);
+  L.push(`## 标题字效（按所选方向）`);
+  L.push(b.styleLock.titleEffect);
   L.push(``);
   L.push(`## Campaign Style Lock`);
   L.push(`- 视觉方向：${b.styleLock.directionName}`);
@@ -987,7 +914,6 @@ function buildFigmaMakeBrief(b) {
 function buildFigmaRestoreBrief(r) {
   const b = buildBrief();
   const page = pages[r.pageId];
-  const style = styles[r.styleId];
   const isCard = r.pageId === 'mini-card';
   const isUpload = r.pageId === 'upload-page';
   const ops = state.ops;
@@ -1051,7 +977,6 @@ function buildFigmaRestoreBrief(r) {
   L.push(`- Ink：${b.designSpec.ink}`);
   L.push(`- Soft background：${b.designSpec.bgSoft}`);
   L.push(`- CTA：${b.designSpec.ctaShape}`);
-  L.push(`- 字体感觉：${b.designSpec.fontFeel}`);
   L.push(`- Campaign Style Lock：${b.styleLock.directionName}；${b.styleLock.titleEffect}；${b.styleLock.button}`);
   if (b.designSpec._override) L.push(`- 本次覆盖：${b.designSpec._override}`);
   L.push(`- 禁忌：${b.designSpec.taboos.join('；')}`);
@@ -1068,7 +993,7 @@ function buildFigmaRestoreBrief(r) {
     '08 Step Text: 步骤说明真实文本层',
     '09 CTA: CTA 按钮真实文本层',
     '10 QR Placeholder: 二维码占位，禁止生成可扫码假码',
-    '11 Decorations: 星星、贴纸、半色调点、sparkle 等装饰',
+    '11 Decorations: 按所选视觉方向的装饰元素（星星 / 贴纸 / 光点 / 线条等）',
   ].forEach(line => L.push(`- ${line}`));
   L.push('');
   L.push(`## 6. 给代码大模型的 1:1 HTML/CSS 还原指令`);
@@ -1207,7 +1132,6 @@ async function exportPsd() {
 
 function buildHtmlSingleFile(r) {
   const page = pages[r.pageId];
-  const style = styles[r.styleId];
   const ops = state.ops;
   const isCard = r.pageId === 'mini-card';
   const isUpload = r.pageId === 'upload-page';
@@ -1297,12 +1221,11 @@ function exportFigma() {
 
 function buildReactComponent(r) {
   const page = pages[r.pageId];
-  const style = styles[r.styleId];
   const ops = state.ops;
   const isCard = r.pageId === 'mini-card';
   const isUpload = r.pageId === 'upload-page';
   const componentKind = isCard ? 'Card' : (isUpload ? 'UploadPage' : 'Poster');
-  const componentName = `Walnut${componentKind}_${style.id.replace(/-/g, '_')}`;
+  const componentName = `Walnut${componentKind}_${(r.styleId || 'campaign').replace(/-/g, '_')}`;
   const sharedTitle = ops.activityName || '秀硬件作品赢超值好礼';
   const titleValue = sharedTitle;
   const ctaValue = isCard ? ops.miniCardCTA : (isUpload ? ops.uploadCTA : ops.posterCTA);
@@ -1388,7 +1311,7 @@ async function exportCode() {
   if (!r?.url) return setStatus('选一张已完成的图', 'err');
   // 一次给 jsx + css 两个文件，打包成一个文本下载（用户自己分文件保存）
   const componentKind = r.pageId === 'mini-card' ? 'Card' : (r.pageId === 'upload-page' ? 'UploadPage' : 'Poster');
-  const componentName = `Walnut${componentKind}_${styles[r.styleId].id.replace(/-/g, '_')}`;
+  const componentName = `Walnut${componentKind}_${(r.styleId || 'campaign').replace(/-/g, '_')}`;
   const jsx = buildReactComponent(r);
   const css = buildReactCss(r);
   const combined = `// ============= ${componentName}.jsx =============\n\n${jsx}\n\n/* ============= ${componentName}.css ============= */\n\n${css}\n`;
@@ -1453,7 +1376,6 @@ function init() {
   renderPageChecks();
   renderPageConfigs();
   renderOpsFields();
-  renderFontChips();
   renderPrdQuestions();
   renderRefs();
   renderStyleChips();
@@ -1471,14 +1393,10 @@ function init() {
     state.pages = new Set(['mini-card', 'promo-poster', 'upload-page']);
     state.styleLock = {
       directionId: 'reward-lively',
-      explorationId: 'light',
-      density: '标准',
       avoid: '不要太花；不要像淘宝广告；不要小字太多',
       globalNotes: [],
     };
     syncStyleFromStyleLock();
-    state.fontStyle = 'default-walnut';
-    state.fontCustom = '';
     state.prdRaw = '';
     state.prdAnswers = {};
     state.refs = [];

@@ -235,28 +235,35 @@ input[type="file"] {
   opacity: 0.7;
 }
 .style-lock-summary {
-  margin-top: 10px;
-  border: 1px solid var(--line);
+  margin-top: 8px;
+  border: 1px solid var(--orange);
   border-radius: 10px;
-  background: #fffdf8;
+  background: linear-gradient(180deg, #fffdf6 0%, #fff8ec 100%);
   overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255, 90, 31, 0.04);
 }
 .style-lock-caption {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--orange-deep);
+  font-weight: 600;
 }
 .style-lock-row {
   display: grid;
-  grid-template-columns: 70px 1fr;
-  gap: 8px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 12px;
+  grid-template-columns: 100px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px dashed var(--line-soft);
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 .style-lock-row:first-child { border-top: 0; }
-.style-lock-row strong { color: var(--orange-deep); }
-.style-lock-row span { color: var(--ink-soft); }
+.style-lock-row strong {
+  color: var(--orange-deep);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.style-lock-row span { color: var(--ink); }
 .advanced-card > summary {
   cursor: pointer;
   font-size: 14px;

@@ -95,26 +95,22 @@
         <!-- Step 7 -->
         <section class="card">
           <div class="card-head">
-            <span class="step-tag">7</span><h2>视觉方向 / Style Lock</h2>
+            <span class="step-tag">7</span><h2>视觉方向</h2>
           </div>
-          <p class="hint">运营用业务语言选择方向，后台会翻译成背景、标题字效、色彩、按钮、奖品摆放和装饰规则。</p>
+          <p class="hint">用业务语言选个方向，系统自动翻译成背景、标题、配色、按钮、奖品摆位和装饰规则。下方实时预览。</p>
           <p class="field-label">这次更像</p>
           <div id="styleChips" class="style-chips"></div>
-          <p class="field-label">探索程度</p>
-          <div id="exploreChips" class="style-chips compact"></div>
-          <p class="field-label">画面密度</p>
-          <div id="densityChips" class="style-chips compact"></div>
-          <label class="field" style="margin-top:8px;">
+          <div class="style-lock-caption">↓ 你选的方向会被翻译成这 6 条设计规则（直接进 AI 提示词）</div>
+          <div id="styleLockSummary" class="style-lock-summary"></div>
+          <label class="field" style="margin-top:14px;">
             <span>不想要</span>
             <input id="styleAvoid" type="text" placeholder="例：不要太花；不要像淘宝广告；不要小字太多" />
           </label>
-          <div class="style-lock-caption">Agent 内置映射预览（只读）：运营选择会被后台翻译成这些设计参数，再进入 prompt。</div>
-          <div id="styleLockSummary" class="style-lock-summary"></div>
         </section>
 
         <details class="card advanced-card">
-          <summary>高级配置：设计规范 / 字体 / 特殊指令</summary>
-          <p class="hint" style="margin-top:10px;">默认不需要运营填写。这里更适合 UI、产品或管理员临时覆盖。</p>
+          <summary>高级配置：设计规范 / 特殊指令</summary>
+          <p class="hint" style="margin-top:10px;">默认不需要运营填写。这里更适合 UI、产品或管理员临时覆盖。字体风格已经融入"标题字效"，不再单独选。</p>
           <label class="field">
             <span>本次特殊指令</span>
             <textarea id="specialInst" rows="2" placeholder="例：这次主推春季拉新，奖品堆里加一个春日元素；标题字别太花。"></textarea>
@@ -122,12 +118,6 @@
           <label class="field" style="margin-top:8px;">
             <span>设计规范覆盖 <span class="locked-note" id="specSource">用默认</span></span>
             <textarea id="designSpecText" rows="2" placeholder="例：本次主色换成蓝绿对比；不要黄色 CTA；用衬线字。"></textarea>
-          </label>
-          <p class="field-label">字体风格</p>
-          <div id="fontChips" class="style-chips"></div>
-          <label class="field" id="fontCustomField" style="display:none; margin-top:8px;">
-            <span>字体描述</span>
-            <textarea id="fontCustom" rows="2" placeholder="例：粗黑体白描边漫画字 / 像变形金刚那种锋利金属感 / 童趣手写带笑脸装饰…"></textarea>
           </label>
         </details>
 

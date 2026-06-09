@@ -63,62 +63,15 @@ export const pages = {
 };
 
 // ——————————————————————————————————————————————
-// 风格库（基于真实物料定调）
-// ——————————————————————————————————————————————
-
-export const styles = {
-  'comic-show-off': {
-    id: 'comic-show-off',
-    name: '漫画晒娃涂鸦版',
-    suit: ['mini-card'],
-    pitch: '黑描边艺术字 + 漫画引号 + 贴纸 + emoji + 半色调点',
-    mood: 'comic, doodle, kid-celebration, sticker-pack vibe',
-    palette: ['#FF5A1F', '#FFD84A', '#000000', '#FFFFFF', '#9D4EDD'],
-  },
-  'prize-stack': {
-    id: 'prize-stack',
-    name: '奖品强刺激版',
-    suit: ['promo-poster'],
-    pitch: '红橙底 + 奖品大堆 + 米黄 step panel + 强促销',
-    mood: 'bold, marketing, prize-heavy, high-impact',
-    palette: ['#FF5A1F', '#FFD84A', '#FFE9C4', '#E53B12'],
-  },
-  'hand-doodle': {
-    id: 'hand-doodle',
-    name: '手绘童趣版',
-    suit: ['promo-poster'],
-    pitch: '涂鸦边框 + 卡通星星人偶 + 手绘箭头 + 米黄底',
-    mood: 'hand-drawn, playful, kawaii, doodle borders',
-    palette: ['#FFE9C4', '#FF5A1F', '#FFD84A', '#FFFFFF'],
-  },
-  'seasonal-scene': {
-    id: 'seasonal-scene',
-    name: '季节场景版',
-    suit: ['promo-poster'],
-    pitch: '草地景深 + 户外光 + 红绿撞色',
-    mood: 'outdoor, seasonal, fresh, depth-of-field',
-    palette: ['#A8D86E', '#FF5A1F', '#FFD84A', '#2D6E2A'],
-  },
-  'tech-credible': {
-    id: 'tech-credible',
-    name: '科技成果版',
-    suit: ['promo-poster'],
-    pitch: '编程界面 + 硬件 + 冷暖对比，主打新用户家长',
-    mood: 'professional, tech, credibility, cool-warm contrast',
-    palette: ['#1B2845', '#FF5A1F', '#FFFFFF', '#23B0FF'],
-  },
-};
-
-// ——————————————————————————————————————————————
 // 活动级视觉方向（给运营看的业务语言）
-// 运营不直接配置设计语言；这里把业务语言映射到后台 Style Lock。
+// 运营选一个方向，下面 6 个维度（背景/标题/配色/按钮/奖品/装饰）直接驱动出图，
+// 不再借用任何旧"风格库"模板 —— 页面结构由 pages 决定，视觉由这里决定。
 // ——————————————————————————————————————————————
 
 export const visualDirections = {
   'reward-lively': {
     id: 'reward-lively',
     name: '热闹领奖',
-    styleId: 'prize-stack',
     operatorIntent: '奖励感强、奖品吸引人、CTA 明确',
     background: '红橙黄活动舞台 / 奖品展台氛围',
     titleEffect: '大标题描边字，强识别，强调「秀」「赢」「好礼」',
@@ -131,7 +84,6 @@ export const visualDirections = {
   'social-natural': {
     id: 'social-natural',
     name: '朋友圈自然',
-    styleId: 'seasonal-scene',
     operatorIntent: '降低广告感，更像家长愿意转发的自然分享',
     background: '浅色生活化 / 户外自然光 / 温暖空间感',
     titleEffect: '保留大标题，但降低强促销描边和爆炸感',
@@ -144,7 +96,6 @@ export const visualDirections = {
   'kids-playful': {
     id: 'kids-playful',
     name: '低龄童趣',
-    styleId: 'hand-doodle',
     operatorIntent: '更可爱、更适合低龄孩子家长',
     background: '手绘纸张 / 涂鸦 / 明亮轻松的童趣氛围',
     titleEffect: '圆润夸张的童趣字效，边缘柔和，可加贴纸感',
@@ -157,7 +108,6 @@ export const visualDirections = {
   'brand-clean': {
     id: 'brand-clean',
     name: '品牌专业',
-    styleId: 'tech-credible',
     operatorIntent: '更可信、更像课程成果展示，减少促销感',
     background: '结构化信息卡 + 编程/硬件成果线索 + 清爽空间',
     titleEffect: '克制现代粗黑标题，减少花哨描边',
@@ -170,7 +120,6 @@ export const visualDirections = {
   'festival': {
     id: 'festival',
     name: '节日氛围',
-    styleId: 'comic-show-off',
     operatorIntent: '更有节点感和庆祝感，但不牺牲信息清晰',
     background: '节日活动场景 / 彩带 / 礼盒 / 灯牌感',
     titleEffect: '节日活动感标题，允许局部彩带、灯牌、贴纸装饰',
@@ -180,23 +129,65 @@ export const visualDirections = {
     decoration: '彩带、礼盒、金币、星星 IP，控制装饰不要压文字',
     prompt: 'festive campaign atmosphere; celebration accents; gift and ribbon decorations; strong readable reward CTA; keep information hierarchy clear.',
   },
-};
-
-export const explorationLevels = {
-  light: {
-    id: 'light',
-    name: '轻微变化',
-    prompt: 'only change background atmosphere, local decorations, and minor color balance; keep title treatment and CTA close to the established style.',
+  'tech-coding': {
+    id: 'tech-coding',
+    name: '编程科技感',
+    operatorIntent: '编程课 / 思维 Py / 机器人课 / 暑期编程营，主打科技未来感但保留温度',
+    background: '深蓝青色科技氛围，浮动代码方块或轻电路纹理，未来感不冷漠',
+    titleEffect: '现代无衬线粗体 + 微辉光 / 渐变描边，科技感但保持可读，不夸张到赛博朋克',
+    color: '深蓝青为主底 + 暖橙黄关键字点缀 + 留出亮色对比，避免纯黑背景',
+    button: '渐变填充圆角按钮，扁平现代，微辉光呼应主题，不要立体凸起',
+    prizeLayout: '编程教具 / 机器人 / 智能键盘带科技光感，构图干净不堆砌',
+    decoration: '像素火花、浮动代码片段、几何线条、轻电路纹理，密度不要压住主题',
+    prompt: 'tech-savvy modern education poster for coding/STEM courses targeting kids 6-14; deep blue/cyan palette with warm orange accent for human warmth; readable title hierarchy; clean code-themed energy without becoming a sci-fi scene.',
   },
-  medium: {
-    id: 'medium',
-    name: '明显变化',
-    prompt: 'change title treatment, button style, color tendency, prize arrangement, and background atmosphere, while keeping page structure and business content locked.',
+  'achievement-showcase': {
+    id: 'achievement-showcase',
+    name: '学习成果展示',
+    operatorIntent: '续报 / 转介绍 / 家长会回流 / 老用户激活，突出"娃学到了什么"',
+    background: '干净浅色底 + 微弱进度图样 / 星座纹理 / 进度条暗示，成就氛围',
+    titleEffect: '沉稳清爽无衬线，关键字带金色装饰，可信不喧闹，不要派对感',
+    color: '米色奶白底 + 金色 / 暖橙点缀 + 柔和蓝（信任色），避免高饱和与彩虹色',
+    button: '单色填充微阴影按钮，自信不喧闹，不带节日 / 派对气氛',
+    prizeLayout: '突出孩子作品 / 证书 / 等级勋章 / 进度可视化作为视觉主角，不堆实物奖品',
+    decoration: '星章、等级勋章、进度曲线、证书飘带，成就感主题不幼稚',
+    prompt: 'kid learning achievement showcase poster aimed at existing parents; certificates / works / growth-curves are the visual hero; warm credible tone with gold milestone accents; suitable for renewal and referral campaigns.',
   },
-  bold: {
-    id: 'bold',
-    name: '大胆探索',
-    prompt: 'explore a distinct visual language and scene mood, but never change page information architecture, exact copy, QR/CTA requirements, or brand identity.',
+  'urgency-countdown': {
+    id: 'urgency-countdown',
+    name: '限时紧迫感',
+    operatorIntent: '报名截止 / 名额倒计时 / 限时优惠（招生季 / 大促节点）',
+    background: '高对比注意力背景 + 放射性图样 / 对角线 / 倒计时图样暗示',
+    titleEffect: '加粗大字 + 强描边 / 强阴影，数字（倒计时 / 名额）必须视觉主导',
+    color: '红 + 黄 + 黑高对比 + 适量留白避免垃圾传单感，绝不用低饱和或粉嫩色',
+    button: '红橙 CTA + 强描边阴影 + "限时"标识，强烈呼吁，可允许脉冲感',
+    prizeLayout: '把名额或时间限制视觉化（"限 100 名"，"3 天截止"），紧迫感优先于奖品美观',
+    decoration: '时钟、沙漏、倒计时徽章、闪电、"限时"红章',
+    prompt: 'urgency-driven limited-time enrollment promotion poster; red/yellow high-contrast palette with strategic white space; countdown or quota number is the visual hero; aggressive CTA presence; suitable for enrollment deadlines and limited-spot campaigns.',
+  },
+  'warm-parent-kid': {
+    id: 'warm-parent-kid',
+    name: '温情亲子',
+    operatorIntent: '父母节 / 续报情感打动 / 家庭场景营销，强调情感连接而非促销',
+    background: '温暖室内 / 户外阳光氛围 + 柔和虚化背景，照片感不卡通',
+    titleEffect: '圆润温暖友好字体，中等粗细，允许局部手写体点缀，不锐利不粗暴',
+    color: '米色 + 蜜桃色 + 柔和金，阳光氛围，避免高饱和与冷色调',
+    button: '圆角胶囊形温色按钮，友好邀请感不强推',
+    prizeLayout: '奖品自然出现在家庭场景里（桌上 / 孩子手里 / 沙发旁），不堆叠摆拍',
+    decoration: '爱心、小植物、柔光颗粒、手绘下划线，温柔自然，密度低',
+    prompt: 'warm parent-child emotional education poster; sunlit home or park atmosphere with golden-hour glow; rounded friendly typography; cream/peach palette; natural prize placement within family scene; suitable for family-emotional campaigns and renewal pushes.',
+  },
+  'kol-soft': {
+    id: 'kol-soft',
+    name: 'KOL 软推感',
+    operatorIntent: '朋友圈拼团 / 家长群投放 / 博主推荐风，弱化广告感',
+    background: '米色 / 暖色仿博客背景，纸质纹理可选，像文章或杂志排版',
+    titleEffect: '编辑感衬线或圆润无衬线点缀，杂志封面 / 推荐文章感，不要电商促销字',
+    color: '米色 + 鼠尾草绿 + 奶油色 + 灰玫，柔和不饱和，磨砂质感',
+    button: '极简下划线 / 浅圆角按钮，不强推，像内容推荐不像广告',
+    prizeLayout: '平铺摆拍式 / "推荐清单"样式 + 简短标注，编辑感构图',
+    decoration: '手绘小箭头、便利贴、虚线、"心得 / 强推"小章，小红书贴纸感',
+    prompt: 'KOL-style soft recommendation poster mimicking Xiaohongshu/blog aesthetic; muted earth-tone palette; editorial typography; flat-lay product placement; trustworthy non-advertisement feeling; suitable for parent group sharing and soft promotion.',
   },
 };
 
@@ -247,9 +238,7 @@ export const defaultDesignSpec = {
   accent:  '#FFD84A',          // 高亮黄
   ink:     '#21180F',          // 深色文字
   bgSoft:  '#FFE9C4',          // 米黄底
-  fontFeel: '中文：粗黑体 + 黑色描边艺术标题；英文手写：手写体 "My Creation"',
   ctaShape: '圆角胶囊（border-radius: 999px），底色亮黄，文字深色加粗',
-  decorations: ['星星 (紫/黄)', '半色调点', '漫画引号「」', 'sparkle', '贴纸+drop shadow'],
   taboos: ['不要西方卡通脸', '不要 watermark / 占位 logo', '不要 lorem ipsum', '不要友商 / 真实第三方品牌'],
 };
 
@@ -316,8 +305,8 @@ export const fontConstraints = {
     'TITLE TYPOGRAPHY must look CUSTOM-DESIGNED for this campaign:',
     '- NOT default system font, NOT Canva template font',
     '- NOT cheap 3D extrusion, NOT cheesy neon',
-    '- Strong stroke contrast, comic-style bold outline',
-    '- The character SHAPE itself can hint at meaning (e.g. "秀" feels confident-showcase, "赢" feels weighty/rewarding, "星" can radiate)',
+    '- For the title look (stroke weight, outline, contrast, overall feel), FOLLOW the "Title treatment" line in the Campaign Style Lock above. Do NOT default to a comic / bold-outline headline unless that Style Lock asks for it — a soft / editorial / clean direction must get a soft / editorial / clean title.',
+    '- The character SHAPE itself can hint at meaning (e.g. "秀" confident-showcase, "赢" weighty/rewarding, "星" radiating), but only within the chosen Title treatment — never override it.',
     '- Text is the hero of its zone — decorations SERVE the text, never compete with it',
   ].join('\n'),
 
@@ -337,57 +326,6 @@ export const fontConstraints = {
 // ——————————————————————————————————————————————
 // 字体风格库（v0 路 2：单一字体，作用于全图所有字）
 // ——————————————————————————————————————————————
-
-export const fontStyles = {
-  'default-walnut': {
-    id: 'default-walnut',
-    name: '核桃品牌默认',
-    desc: '漫画粗黑体 + 白色描边 + 黑色阴影（对应当前物料）',
-    prompt: 'comic-style chunky bold Chinese typeface with thick white outer stroke and dark drop shadow; brand-orange or red accent on key hero characters; matches Walnut Coding established material identity.',
-  },
-  'kids-round': {
-    id: 'kids-round',
-    name: '童趣圆体',
-    desc: '圆角厚重，可爱亲和，适合低龄',
-    prompt: 'rounded chunky Chinese typeface with soft generous corners, full body weight, warm playful kid-friendly feel.',
-  },
-  'brush-calligraphy': {
-    id: 'brush-calligraphy',
-    name: '毛笔书法',
-    desc: '中国风 / 节日 / 文化感',
-    prompt: 'Chinese brush calligraphy with strong ink contrast, organic stroke variation, traditional cultural feel; weight expressive, not uniform.',
-  },
-  'minimal-modern': {
-    id: 'minimal-modern',
-    name: '极简现代黑体',
-    desc: '专业干净，适合科技/招新',
-    prompt: 'clean modern Chinese sans-serif typography with even stroke width, geometric construction, generous letter spacing, professional and minimalist; orange accent on keywords.',
-  },
-  'promo-impact': {
-    id: 'promo-impact',
-    name: '粗壮促销字',
-    desc: '强促销 / 奖品堆头 / 高视觉重量',
-    prompt: 'impact-heavy Chinese promotional typography with extreme stroke weight, dense compressed structure, marketing energy, strong drop shadow and color block highlight.',
-  },
-  'hand-written': {
-    id: 'hand-written',
-    name: '手写涂鸦',
-    desc: '手账感 / 童趣 / 漫画书',
-    prompt: 'hand-lettered Chinese strokes with imperfect pen movement, marker-style ink, doodle accents around the characters, casual handwritten feel.',
-  },
-  'retro-print': {
-    id: 'retro-print',
-    name: '复古印刷',
-    desc: '老报纸 / 怀旧 / 编辑感',
-    prompt: 'retro printed Chinese typeface with subtle ink texture, slight weathering and registration offset, vintage editorial feel.',
-  },
-  'custom': {
-    id: 'custom',
-    name: '自定义（自由描述）',
-    desc: '自己写一段字体感觉，AI 按你的话画',
-    prompt: '',  // 占位，运行时用 state.fontCustom 替换
-  },
-};
 
 // 标题字形隐喻参考（按当下文案，未来可扩）
 export const titleGlyphHints = {
