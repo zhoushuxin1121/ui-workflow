@@ -146,7 +146,8 @@ function prizeNames(ctx) {
 }
 
 const campaignTitle = (ctx) => ctx.ops.activityName || '秀硬件作品赢超值好礼';
-const miniTitle = (ctx) => ctx.ops.miniCardTitle || campaignTitle(ctx);
+// 小程序卡片标题 = 共用活动标题（activityName）。标题是共用内容，不存在私有覆盖。
+const miniTitle = (ctx) => campaignTitle(ctx);
 const miniTitles  = (ctx) => [miniTitle(ctx), ctx.ops.miniCardCTA];
 const posterTitles = (ctx) => [campaignTitle(ctx), ctx.ops.posterCTA, ctx.ops.posterFooter];
 const uploadTitles = (ctx) => [campaignTitle(ctx), ctx.ops.uploadSubtitle, ctx.ops.uploadCTA];

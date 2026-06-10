@@ -74,7 +74,7 @@ export const visualDirections = {
     name: '热闹领奖',
     operatorIntent: '奖励感强、奖品吸引人、CTA 明确',
     background: '红橙黄活动舞台 / 奖品展台氛围',
-    titleEffect: '大标题描边字，强识别，强调「秀」「赢」「好礼」',
+    titleEffect: '大标题描边字，强识别，对标题里的核心利益词做重音放大（强调哪些字由实际文案决定，不写死）',
     color: '核桃橙 #FF5A1F + 高亮黄 #FFD84A + 暖红',
     button: '高对比圆角胶囊按钮，奖励感强，文字必须清晰',
     prizeLayout: '奖品堆作为主视觉，主奖品居中，辅奖品两侧补充',
@@ -137,7 +137,7 @@ export const visualDirections = {
     titleEffect: '现代无衬线粗体 + 微辉光 / 渐变描边，科技感但保持可读，不夸张到赛博朋克',
     color: '深蓝青为主底 + 暖橙黄关键字点缀 + 留出亮色对比，避免纯黑背景',
     button: '渐变填充圆角按钮，扁平现代，微辉光呼应主题，不要立体凸起',
-    prizeLayout: '编程教具 / 机器人 / 智能键盘带科技光感，构图干净不堆砌',
+    prizeLayout: '奖品 / 教具带科技光感质感，构图干净不堆砌（具体奖品取自运营奖品清单）',
     decoration: '像素火花、浮动代码片段、几何线条、轻电路纹理，密度不要压住主题',
     prompt: 'tech-savvy modern education poster for coding/STEM courses targeting kids 6-14; deep blue/cyan palette with warm orange accent for human warmth; readable title hierarchy; clean code-themed energy without becoming a sci-fi scene.',
   },
@@ -160,9 +160,9 @@ export const visualDirections = {
     background: '高对比注意力背景 + 放射性图样 / 对角线 / 倒计时图样暗示',
     titleEffect: '加粗大字 + 强描边 / 强阴影，数字（倒计时 / 名额）必须视觉主导',
     color: '红 + 黄 + 黑高对比 + 适量留白避免垃圾传单感，绝不用低饱和或粉嫩色',
-    button: '红橙 CTA + 强描边阴影 + "限时"标识，强烈呼吁，可允许脉冲感',
-    prizeLayout: '把名额或时间限制视觉化（"限 100 名"，"3 天截止"），紧迫感优先于奖品美观',
-    decoration: '时钟、沙漏、倒计时徽章、闪电、"限时"红章',
+    button: '红橙 CTA + 强描边阴影 + 醒目促销角标，强烈呼吁，可允许脉冲感',
+    prizeLayout: '把名额或截止时间做成视觉主角并放大，紧迫感优先于奖品美观（具体名额数 / 截止日期取自运营文案，不写死）',
+    decoration: '时钟、沙漏、倒计时徽章、闪电、红色促销角标（角标文字取自运营文案）',
     prompt: 'urgency-driven limited-time enrollment promotion poster; red/yellow high-contrast palette with strategic white space; countdown or quota number is the visual hero; aggressive CTA presence; suitable for enrollment deadlines and limited-spot campaigns.',
   },
   'warm-parent-kid': {
@@ -211,21 +211,17 @@ export const keyQuestions = [
 // 当运营点这些 chip，会把对应的 promptAddon 拼到下一轮 prompt 里
 // ——————————————————————————————————————————————
 
+// appliesTo: 这个优化方向适用于哪些页面（按页面结构里真实存在的元素）。
+// 没列到的页面不会出现这个 chip —— 小程序卡片没有二维码/步骤/兑换区/参考图，就不该列。
 export const optimizationOptions = [
-  { id: 'prize-bigger',   label: '奖品更突出',       scope: 'local', addon: 'increase prize visual weight on this page only, push prizes to foreground, keep campaign style lock unchanged' },
-  { id: 'title-bigger',   label: '标题更突出',       scope: 'local', addon: 'increase title hierarchy on this page only, keep exact title copy and campaign typography fingerprint' },
-  { id: 'cta-stronger',   label: '按钮更明显',       scope: 'local', addon: 'make the CTA area more visible and clickable on this page only, keep exact CTA copy' },
-  { id: 'qr-clearer',     label: '二维码更清晰',     scope: 'local', addon: 'make QR placeholder area clearer with more safe margin and contrast; do not create an actual scannable QR code' },
-  { id: 'step-clearer',   label: '步骤更清楚',       scope: 'local', addon: 'make activity steps easier to read on this page only, reserve cleaner text zones and hierarchy' },
-  { id: 'less-deco',      label: '减少装饰',         scope: 'local', addon: 'reduce decoration density on this page only; keep the same campaign color and title style' },
-  { id: 'exchange-bigger',label: '兑换区更突出',     scope: 'local', addon: 'make the exchange area and prize redemption section more prominent on this page only' },
-  { id: 'sample-clearer', label: '参考图更清楚',     scope: 'local', addon: 'make upload sample photo area clearer and more instructional on this page only' },
-];
-
-export const globalUpdateOptions = [
-  { id: 'global-social', label: '整套更像朋友圈', directionId: 'social-natural', addon: 'update the campaign style lock toward social-share friendly, lower ad pressure, warmer natural sharing feeling' },
-  { id: 'global-reward', label: '整套更热闹领奖', directionId: 'reward-lively', addon: 'update the campaign style lock toward stronger reward excitement and more prominent prize-driven CTA' },
-  { id: 'global-clean', label: '整套更清爽专业', directionId: 'brand-clean', addon: 'update the campaign style lock toward cleaner professional brand credibility and reduced decoration density' },
+  { id: 'prize-bigger',   label: '奖品更突出',   scope: 'local', appliesTo: ['mini-card', 'promo-poster', 'upload-page'], addon: 'increase prize visual weight on this page only, push prizes to foreground, keep campaign style lock unchanged' },
+  { id: 'title-bigger',   label: '标题更突出',   scope: 'local', appliesTo: ['mini-card', 'promo-poster', 'upload-page'], addon: 'increase title hierarchy on this page only, keep exact title copy and campaign typography fingerprint' },
+  { id: 'cta-stronger',   label: '按钮更明显',   scope: 'local', appliesTo: ['mini-card', 'promo-poster', 'upload-page'], addon: 'make the CTA area more visible and clickable on this page only, keep exact CTA copy' },
+  { id: 'less-deco',      label: '减少装饰',     scope: 'local', appliesTo: ['mini-card', 'promo-poster', 'upload-page'], addon: 'reduce decoration density on this page only; keep the same campaign color and title style' },
+  { id: 'qr-clearer',     label: '二维码更清晰', scope: 'local', appliesTo: ['promo-poster'], addon: 'make QR placeholder area clearer with more safe margin and contrast; do not create an actual scannable QR code' },
+  { id: 'step-clearer',   label: '步骤更清楚',   scope: 'local', appliesTo: ['promo-poster', 'upload-page'], addon: 'make activity steps easier to read on this page only, reserve cleaner text zones and hierarchy' },
+  { id: 'exchange-bigger',label: '兑换区更突出', scope: 'local', appliesTo: ['upload-page'], addon: 'make the exchange area and prize redemption section more prominent on this page only' },
+  { id: 'sample-clearer', label: '参考图更清楚', scope: 'local', appliesTo: ['upload-page'], addon: 'make upload sample photo area clearer and more instructional on this page only' },
 ];
 
 // ——————————————————————————————————————————————
@@ -253,12 +249,10 @@ export const defaultOps = {
   uploadTask:      '横屏拍摄孩子手拿硬件作品和编程界面的合照，让孩子更有荣誉感',
   uploadExample:   '孩子手拿硬件作品 + 编程界面合照',
   requiredAssets:  '核桃 logo、星星 IP、金币、礼盒、奖品图、二维码占位',
-  miniCardTitle:   '秀硬件作品领超值好礼',
   miniCardCTA:     '立即领取',
   miniCardTarget:  '上传页',
   posterCTA:       '扫码立即参与',
   posterFooter:    '更多好礼等你领',
-  posterQr:         '活动二维码占位',
   uploadSubtitle:   '上传硬件作品合照，晒出荣誉时刻，赢取超值好礼',
   uploadCTA:        '点我去上传',
   ruleEntry:        '规则',

@@ -1,7 +1,7 @@
 import {
   activityTemplate, pages,
   visualDirections,
-  keyQuestions, optimizationOptions, globalUpdateOptions,
+  keyQuestions, optimizationOptions,
   defaultDesignSpec, defaultOps, modelRouting,
 } from './data.js';
 import {
@@ -34,7 +34,7 @@ const state = {
   styleLock: {
     directionId: 'reward-lively',
     avoid: '不要太花；不要像淘宝广告；不要小字太多',
-    globalNotes: [],
+    overrides: {},   // 手动编辑的设计规则覆盖（key: background/titleEffect/color/button/prizeLayout/decoration）
   },
   prdRaw: '',
   prdAnswers: {},
@@ -274,21 +274,24 @@ function syncStyleFromStyleLock() {
   state.styles = new Set([direction.id]);
 }
 
+// 6 条可编辑设计规则的字段名（顺序即 UI 展示顺序）
+const STYLE_RULE_FIELDS = ['background', 'titleEffect', 'color', 'button', 'prizeLayout', 'decoration'];
+
 function getStyleLockCompiled() {
   const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
+  const ov = state.styleLock.overrides || {};
+  // 每条规则：有非空手动编辑用编辑值，否则回落方向默认（清空某条 = 用默认，不会注入空规则）
+  const merged = {};
+  for (const f of STYLE_RULE_FIELDS) {
+    merged[f] = (ov[f] != null && String(ov[f]).trim() !== '') ? ov[f] : direction[f];
+  }
   return {
     directionId: direction.id,
     directionName: direction.name,
     avoid: state.styleLock.avoid,
     operatorIntent: direction.operatorIntent,
-    background: direction.background,
-    titleEffect: direction.titleEffect,
-    color: direction.color,
-    button: direction.button,
-    prizeLayout: direction.prizeLayout,
-    decoration: direction.decoration,
+    ...merged,
     directionPrompt: direction.prompt,
-    globalNotes: state.styleLock.globalNotes,
   };
 }
 
@@ -304,6 +307,8 @@ function renderStyleChips() {
         title: d.operatorIntent,
         onclick: () => {
           state.styleLock.directionId = d.id;
+          state.styleLock.overrides = {};   // 切风格 = 重置成新风格干净的 6 条基线规则
+          resetDrawUi();                     // 换风格了，抽卡按钮/状态归位
           syncStyleFromStyleLock();
           renderStyleChips();
           updateGenButton();
@@ -326,27 +331,126 @@ function renderStyleChips() {
   renderStyleLockSummary();
 }
 
+const STYLE_RULE_META = [
+  ['background',  '🌅', '背景氛围'],
+  ['titleEffect', '🖋', '标题字效'],
+  ['color',       '🎨', '色彩倾向'],
+  ['button',      '🔘', '按钮样式'],
+  ['prizeLayout', '🎁', '奖品摆位'],
+  ['decoration',  '🎀', '装饰元素'],
+];
+
+// 抽卡：在所选风格下，让 MiniMax 演绎一组设计语言 → 直接填进可编辑规则（overrides）
+// 轮换"演绎侧重"，从结构上逼出每次抽卡的差异
+const DRAW_ANGLES = ['背景场景与氛围', '标题字效处理', '配色搭配与比例', '奖品摆位与构图', '装饰元素与节奏', '整体气质的另一种解读'];
+let drawAngleIndex = 0;
+
+// 抽卡按钮默认文案：显示当前选中的风格名，避免"这个风格"指代不清
+function drawBtnDefaultLabel() {
+  const d = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
+  return `🎴 在【${d.name}】下抽一组设计`;
+}
+
+// 抽卡按钮 / 状态归位（换风格或恢复默认时调用）
+function resetDrawUi() {
+  const btn = $('#drawBtn'); if (btn) { btn.textContent = drawBtnDefaultLabel(); btn.disabled = false; }
+  const st = $('#drawStatus'); if (st) { st.textContent = ''; st.className = 'draw-status'; }
+}
+
+function buildDrawCtx() {
+  return {
+    spec: { primary: defaultDesignSpec.primary, accent: defaultDesignSpec.accent },
+    taboos: [(defaultDesignSpec.taboos || []).join('；'), state.styleLock.avoid].filter(Boolean).join('；'),
+    pages: [...state.pages].map(id => pages[id]?.name).filter(Boolean).join('、'),
+  };
+}
+
+async function drawStyle() {
+  const statusEl = $('#drawStatus');
+  const btn = $('#drawBtn');
+  const direction = visualDirections[state.styleLock.directionId] || visualDirections['reward-lively'];
+  const angle = DRAW_ANGLES[drawAngleIndex % DRAW_ANGLES.length];
+  drawAngleIndex++;
+  const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  if (statusEl) { statusEl.textContent = `🎴 AI 正在「${direction.name}」风格下抽一张…`; statusEl.className = 'draw-status loading'; }
+  if (btn) btn.disabled = true;
+  try {
+    const resp = await fetch('/api/draw-style', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        direction: {
+          name: direction.name,
+          operatorIntent: direction.operatorIntent,
+          baseRules: {
+            background: direction.background, titleEffect: direction.titleEffect, color: direction.color,
+            button: direction.button, prizeLayout: direction.prizeLayout, decoration: direction.decoration,
+          },
+        },
+        angle, nonce, ctx: buildDrawCtx(),
+      }),
+    }).then(x => x.json());
+    if (resp.ok && resp.rules) {
+      // 抽到的卡填进可编辑规则（运营可继续微调），再抽会再覆盖
+      state.styleLock.overrides = { ...state.styleLock.overrides, ...resp.rules };
+      renderStyleLockSummary();
+      renderBriefPreview();
+      const vibe = resp.vibe ? `「${resp.vibe}」` : '一组新设计';
+      if (statusEl) { statusEl.textContent = `✅ 抽到${vibe}，可继续微调或「再抽一张」`; statusEl.className = 'draw-status ok'; }
+      if (btn) btn.textContent = '🎴 再抽一张';
+    } else {
+      if (statusEl) { statusEl.textContent = '没抽成功：' + (resp.error || '稍后再试'); statusEl.className = 'draw-status err'; }
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = '请求失败：' + e.message; statusEl.className = 'draw-status err'; }
+  }
+  if (btn) btn.disabled = false;
+}
+
 function renderStyleLockSummary() {
   const box = $('#styleLockSummary');
   if (!box) return;
   const lock = getStyleLockCompiled();
+  const ov = state.styleLock.overrides || {};
   box.innerHTML = '';
-  const rows = [
-    ['🌅', '背景氛围', lock.background],
-    ['🖋', '标题字效', lock.titleEffect],
-    ['🎨', '色彩倾向', lock.color],
-    ['🔘', '按钮样式', lock.button],
-    ['🎁', '奖品摆位', lock.prizeLayout],
-    ['🎀', '装饰元素', lock.decoration],
-  ];
-  for (const [icon, label, value] of rows) {
+  for (const [field, icon, label] of STYLE_RULE_META) {
+    const edited = ov[field] != null && ov[field] !== '';
+    const ta = el('textarea', {
+      class: 'style-lock-input',
+      rows: '2',
+      value: lock[field] || '',
+      // 编辑只写 overrides + 刷新 brief，不重渲染整块（否则光标会丢）
+      oninput: (e) => {
+        state.styleLock.overrides[field] = e.target.value;
+        const row = e.target.closest('.style-lock-row');
+        if (row) row.classList.add('edited');
+        renderBriefPreview();
+      },
+    });
+    ta.value = lock[field] || '';
     box.append(
-      el('div', { class: 'style-lock-row' }, [
+      el('div', { class: 'style-lock-row' + (edited ? ' edited' : '') }, [
         el('strong', {}, `${icon} ${label}`),
-        el('span', {}, value),
+        ta,
       ])
     );
   }
+  // 恢复当前方向默认（清空所有手动编辑）
+  box.append(
+    el('div', { class: 'style-lock-reset-row' }, [
+      el('button', {
+        class: 'ghost-btn',
+        type: 'button',
+        onclick: () => {
+          state.styleLock.overrides = {};
+          resetDrawUi();
+          renderStyleLockSummary();
+          renderBriefPreview();
+        },
+      }, '↺ 恢复该方向默认'),
+    ])
+  );
 }
 
 // ==========================================================================
@@ -396,6 +500,7 @@ async function generate() {
         status: 'submitted', url: null, taskId: null,
         optSelected: new Set(), optText: '', history: [], localDeltas: [],
         usedRef: refImages.length > 0, refCount: refImages.length, model,
+        aiSuggestions: null, critiqueState: null, aiSelected: new Set(),
       });
     }
   }
@@ -427,6 +532,7 @@ async function generate() {
     else              { r.status = 'error'; r.error = JSON.stringify(t.raw || t).slice(0, 200); }
   }
   renderResults();
+  ensureCritiques();
   pollPending();
   renderBriefPreview();
 }
@@ -455,11 +561,72 @@ async function pollPending() {
       }
     }));
     renderResults();
+    ensureCritiques();
     renderBriefPreview();
     if (stillPending === 0) { setStatus('完成', 'ok'); return; }
     setStatus(`轮询中（剩 ${stillPending} 张）…`);
   }
   setStatus('部分图未完成，请稍后手动刷新', 'err');
+}
+
+// ==========================================================================
+// AI 看图给优化建议：每张图出完自动触发，读图 + 约束 → 大白话建议
+// ==========================================================================
+
+// 给某张图凑齐 critique 需要的约束上下文（页面结构 / 视觉规则 / 锁定文案 / 业务目标）
+function buildCritiqueCtx(r) {
+  const sl = getStyleLockCompiled();
+  const page = pages[r.pageId];
+  const ops = state.ops;
+  const ctaByPage = {
+    'mini-card': ops.miniCardCTA,
+    'promo-poster': ops.posterCTA,
+    'upload-page': ops.uploadCTA,
+  };
+  return {
+    pageName: page.name,
+    structure: page.structure || page.mainElement,
+    styleLock: {
+      background: sl.background, titleEffect: sl.titleEffect, color: sl.color,
+      button: sl.button, prizeLayout: sl.prizeLayout, decoration: sl.decoration,
+    },
+    title: ops.activityName || '',
+    cta: ctaByPage[r.pageId] || '',
+    taboos: (defaultDesignSpec.taboos || []).join('；'),
+    intent: (summarizePrdInfo(state.prdAnswers, state.prdRaw) || state.special || '').slice(0, 400),
+  };
+}
+
+async function requestCritique(r) {
+  if (!r || !r.url || r.status !== 'completed') return;
+  if (r.critiqueState === 'loading' || r.critiqueState === 'done') return;
+  r.critiqueState = 'loading';
+  renderResults();
+  try {
+    const resp = await fetch('/api/critique', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl: r.url, ctx: buildCritiqueCtx(r) }),
+    }).then(x => x.json());
+    if (resp.ok && Array.isArray(resp.suggestions) && resp.suggestions.length) {
+      r.aiSuggestions = resp.suggestions;
+      r.critiqueState = 'done';
+    } else {
+      r.critiqueState = 'error';   // 失败/空 → 卡片回落到静态优化方向
+    }
+  } catch (e) {
+    r.critiqueState = 'error';
+  }
+  renderResults();
+}
+
+// 扫所有已完成但还没看过图的结果，自动触发 critique（并发、即发即忘）
+function ensureCritiques() {
+  for (const r of state.results) {
+    if (r.status === 'completed' && r.url && !r.critiqueState) {
+      requestCritique(r);
+    }
+  }
 }
 
 // ==========================================================================
@@ -503,6 +670,32 @@ function renderResultCard(r) {
     el('span', {}, '只修改这张图，继续继承当前 Campaign Style Lock'),
   ]);
 
+  // AI 看图建议区：loading 转圈 / done 出大白话建议 chip（点选 → 进 addon）/ 其它不显示
+  let aiSection = null;
+  if (r.critiqueState === 'loading') {
+    aiSection = el('div', { class: 'ai-critique loading' }, [
+      el('span', { class: 'ai-dot' }),
+      el('span', {}, '🔍 AI 正在看这张图，找可以优化的点…'),
+    ]);
+  } else if (r.critiqueState === 'done' && r.aiSuggestions?.length) {
+    aiSection = el('div', { class: 'ai-critique done' }, [
+      el('div', { class: 'ai-critique-head' }, '🔍 AI 看了这张图，建议：'),
+      el('div', { class: 'opt-row scoped' }, r.aiSuggestions.map((s) => {
+        const key = s.addon || s.label;
+        const chip = el('span', {
+          class: 'opt-chip ai' + (r.aiSelected.has(key) ? ' active' : ''),
+          title: s.why || '',
+          onclick: () => {
+            if (r.aiSelected.has(key)) r.aiSelected.delete(key);
+            else r.aiSelected.add(key);
+            chip.classList.toggle('active');
+          },
+        }, s.label);
+        return chip;
+      })),
+    ]);
+  }
+
   const optRow = el('div', { class: 'opt-row scoped' });
   for (const opt of suggested) {
     const chip = el('span', {
@@ -521,7 +714,8 @@ function renderResultCard(r) {
   const moreOpts = el('details', {}, [
     el('summary', {}, '更多优化方向'),
     el('div', { class: 'opt-row', style: 'margin-top:6px;' }, optimizationOptions
-      .filter(o => !suggested.find(s => s.id === o.id))
+      // 只列适用于当前页面结构的优化方向（小程序卡片不会出现二维码/步骤/兑换区/参考图）
+      .filter(o => (o.appliesTo || []).includes(r.pageId) && !suggested.find(s => s.id === o.id))
       .map(o => {
         const chip = el('span', {
           class: 'opt-chip' + (r.optSelected.has(o.id) ? ' active' : ''),
@@ -542,18 +736,6 @@ function renderResultCard(r) {
     oninput: (e) => { r.optText = e.target.value; renderBriefPreview(); },
   });
   optText.value = r.optText;
-
-  const globalBox = el('div', { class: 'global-update-box' }, [
-    el('div', { class: 'scope-hint' }, [
-      el('span', { class: 'scope-pill global' }, 'Global Update'),
-      el('span', {}, '会更新整套图的 Campaign Style Lock，需要重新生成整套页面'),
-    ]),
-    el('div', { class: 'opt-row scoped' }, globalUpdateOptions.map(o => el('span', {
-      class: 'opt-chip global',
-      title: o.addon,
-      onclick: () => applyGlobalUpdate(o),
-    }, o.label))),
-  ]);
 
   const actions = el('div', { class: 'actions' }, [
     el('button', {
@@ -586,29 +768,14 @@ function renderResultCard(r) {
       el('span', {}, `视觉方向：${styleLock.directionName}`),
     ]),
     scopeHint,
-    optRow,
+    aiSection,
+    // AI 建议出来后，静态"建议方向"收起到「更多优化方向」里，避免重复堆叠
+    (r.critiqueState === 'done' && r.aiSuggestions?.length) ? null : optRow,
     moreOpts,
     optText,
-    globalBox,
     actions,
     promptBlock,
   ]);
-}
-
-function applyGlobalUpdate(option) {
-  if (!option?.directionId) return;
-  state.styleLock.directionId = option.directionId;
-  state.styleLock.globalNotes.push({
-    at: new Date().toISOString(),
-    label: option.label,
-    addon: option.addon,
-  });
-  syncStyleFromStyleLock();
-  renderStyleChips();
-  renderResults();
-  renderBriefPreview();
-  updateGenButton();
-  setStatus(`${option.label} 已写入 Campaign Style Lock；请重新生成整套页面`, 'ok');
 }
 
 function statusClass(s) {
@@ -629,7 +796,7 @@ async function loadDemoResult() {
   state.styleLock = {
     directionId: 'reward-lively',
     avoid: '不要太花；不要像淘宝广告；不要小字太多',
-    globalNotes: [],
+    overrides: {},
   };
   syncStyleFromStyleLock();
   const styleId = [...state.styles][0];
@@ -659,6 +826,7 @@ async function loadDemoResult() {
     localDeltas: [],
     usedRef: false,
     refCount: 0,
+    aiSuggestions: null, critiqueState: 'skip', aiSelected: new Set(),  // demo 占位图不调 AI 看图
     model: modelRouting.default.model,
     isDemo: true,
   }];
@@ -749,15 +917,22 @@ function svgToPngDataUrl(svg, width, height) {
 }
 
 async function regenerate(r) {
-  const addons = [...r.optSelected]
+  // 局部修改 addon = 静态优化 chip + AI 看图建议（运营点选的）合并
+  const staticAddons = [...r.optSelected]
     .map(id => optimizationOptions.find(o => o.id === id)?.addon)
     .filter(Boolean);
+  const aiAddons = [...(r.aiSelected || [])].filter(Boolean);
+  const addons = [...staticAddons, ...aiAddons];
   const newPrompt = buildOptimizedPrompt(r.prompt, addons, r.optText);
   r.history.push({ prompt: r.prompt, url: r.url });
   r.prompt = newPrompt;
   r.status = 'submitted';
   r.url = null;
   r.taskId = null;
+  // 换了新图：清掉旧的 AI 看图结果，等新图出来重新看
+  r.critiqueState = null;
+  r.aiSuggestions = null;
+  if (r.aiSelected) r.aiSelected.clear();
   renderResults();
   setStatus(`提交局部修改（${pages[r.pageId].name} · ${getStyleLockCompiled().directionName}）…`);
 
@@ -790,6 +965,7 @@ async function regenerate(r) {
   else if (t.taskId){ r.status = 'pending'; r.taskId = t.taskId; }
   else              { r.status = 'error'; }
   renderResults();
+  ensureCritiques();
   pollPending();
   renderBriefPreview();
 }
@@ -1389,12 +1565,15 @@ function init() {
   };
   $('#generateBtn').onclick = generate;
   $('#loadDemoBtn').onclick = loadDemoResult;
+  const drawBtn = $('#drawBtn');
+  if (drawBtn) drawBtn.onclick = drawStyle;
+  resetDrawUi();   // 初始按钮文案显示默认选中风格名
   $('#resetBtn').onclick = () => {
     state.pages = new Set(['mini-card', 'promo-poster', 'upload-page']);
     state.styleLock = {
       directionId: 'reward-lively',
       avoid: '不要太花；不要像淘宝广告；不要小字太多',
-      globalNotes: [],
+      overrides: {},
     };
     syncStyleFromStyleLock();
     state.prdRaw = '';

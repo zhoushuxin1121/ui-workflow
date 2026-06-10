@@ -97,10 +97,15 @@
           <div class="card-head">
             <span class="step-tag">7</span><h2>视觉方向</h2>
           </div>
-          <p class="hint">用业务语言选个方向，系统自动翻译成背景、标题、配色、按钮、奖品摆位和装饰规则。下方实时预览。</p>
-          <p class="field-label">这次更像</p>
+          <p class="hint">选个风格当起点，点「抽卡」让 AI 在这个风格下演绎出一组设计语言；不满意可反复重抽，抽到的还能直接改。</p>
           <div id="styleChips" class="style-chips"></div>
-          <div class="style-lock-caption">↓ 你选的方向会被翻译成这 6 条设计规则（直接进 AI 提示词）</div>
+          <div class="draw-box">
+            <div class="draw-row">
+              <button id="drawBtn" class="primary-btn" type="button">🎴 在【上面选的风格】下抽一组设计</button>
+              <span id="drawStatus" class="draw-status"></span>
+            </div>
+          </div>
+          <div class="style-lock-caption">↓ 这 6 条规则可直接编辑（进 AI 提示词）。抽到满意 / 改完后，点上方「生成」按新规则重出整套。</div>
           <div id="styleLockSummary" class="style-lock-summary"></div>
           <label class="field" style="margin-top:14px;">
             <span>不想要</span>
